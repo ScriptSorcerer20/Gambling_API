@@ -1,0 +1,21 @@
+{
+  "name": "gambling_api",
+  "version": "1.0.0",
+  "description": "",
+  "main": "swagger.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ScriptSorcerer20/Gambling_API.git"
+  },
+  "private": true,
+  "dependencies": {
+    "express": "^5.1.0",
+    "swagger-ui-express": "^5.0.1"
+  },
+  "devDependencies": {
+    "swagger-autogen": "^2.23.7"
+  }
+}
