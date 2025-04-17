@@ -36,7 +36,11 @@ function generateAccessToken(user) {
 }
 
 function authenticateToken(request, response, next) {
-    const authHeader = request.headers["authorization"];
+    /* #swagger.security = [{
+        "bearerAuth": []
+}] */
+    const authHeader = request.headers.authorization;
+    console.log(authHeader);
     const token = authHeader && authHeader.split(" ")[1];
 
     if (token == null) return response.sendStatus(401);
@@ -56,9 +60,9 @@ function authenticateToken(request, response, next) {
 }
 
 app.post("/register", (request, response) => {
-    const { username } = request.body;
-    if (!username)
-        return response.status(400).json({ error: "Username is required" });
+    const { username, password } = request.body;
+    if (!username && !password)
+        return response.status(400).json({ error: "Username and password are required" });
 
     const users = get_data();
     if (users.some(u => u.username === username)) {
@@ -66,20 +70,23 @@ app.post("/register", (request, response) => {
     }
 
     const token = generateAccessToken({ username });
-    saveUser({ username, token });
+    saveUser({ username, password, token });
 
     response.json({ username, token });
 });
 
 app.post("/login", (request, response) => {
-    const { username } = request.body;
-    if (!username)
-        return response.status(400).json({ error: "Username is required" });
+    const { username, password } = request.body;
+    if (!username && !password)
+        return response.status(400).json({ error: "Username and password are required" });
 
     const users = get_data();
     const user = users.find(u => u.username === username);
     if (!user) return response.status(401).json({ error: "Invalid credentials" });
 
+    if (user.password !== password) {
+        response.status(401).json({ error: "Invalid password" });
+    }
 
     const token = generateAccessToken({ username });
     user.token = token;
@@ -89,6 +96,9 @@ app.post("/login", (request, response) => {
 });
 
 app.get("/", authenticateToken, (request, response) => {
+    /* #swagger.security = [{
+            "bearerAuth": []
+    }] */
     response.sendFile(path.join(__dirname, "structure.png"));
 });
 

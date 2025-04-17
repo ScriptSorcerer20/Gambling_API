@@ -5,7 +5,15 @@ const doc = {
         title: 'GAMBLE!',
         description: 'Gambling API'
     },
-    host: 'localhost:3000'
+    host: 'localhost:3000',
+    components: {
+        securitySchemes:{
+            bearerAuth: {
+                type: 'http',
+                scheme: 'bearer'
+            }
+        }
+    }
 };
 
 const outputFile = './swagger.json';
