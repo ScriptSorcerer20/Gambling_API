@@ -65,7 +65,7 @@ app.post("/register", (request, response) => {
     let { username, password } = request.body;
     username = username.toLowerCase();
 
-    if (!username && !password)
+    if (!username || !password)
         return response.status(400).json({ error: "Username and password are required" });
 
     const users = get_data();
@@ -85,7 +85,7 @@ app.get("/login", (request, response) => {
 app.post("/login", (request, response) => {
     let { username, password } = request.body;
     username = username.toLowerCase();
-    if (!username && !password)
+    if (!username || !password)
         return response.status(400).json({ error: "Username and password are required" });
 
     const users = get_data();
