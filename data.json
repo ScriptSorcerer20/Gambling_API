@@ -1,0 +1,20 @@
+[
+  {
+    "username": "jerome",
+    "password": "Sigma",
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6Implcm9tZSIsImlhdCI6MTc0NDg3NDQ2MCwiZXhwIjoxNzQ0ODc2MjYwfQ.4FnQwoi25uSs8VQWBgC3MRvaZfqcoDN8041fky4YDo4",
+    "money": 200
+  },
+  {
+    "username": "Gianimon",
+    "password": "gianimon",
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6IkdpYW5pbW9uIiwiaWF0IjoxNzQ0ODc0NTczLCJleHAiOjE3NDQ4NzYzNzN9.dGp5WTKIDVhomKZ8J7nevz8O7PqwRhR9wEgeyDtL_XE",
+    "money": 200
+  },
+  {
+    "username": "any",
+    "password": "any",
+    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFueSIsImlhdCI6MTc0NDg3OTQ1NCwiZXhwIjoxNzQ0ODgxMjU0fQ.xTV0yfMBO0BTsmggjouwYrx180un9rHiDljQqN6IUdw",
+    "money": 200
+  }
+]

@@ -69,8 +69,9 @@ app.post("/register", (request, response) => {
         return response.status(400).json({ error: "Username already exists" });
     }
 
+
     const token = generateAccessToken({ username });
-    saveUser({ username, password, token });
+    saveUser({ username, password, token, "money": 200 });
 
     response.json({ username, token });
 });
@@ -100,6 +101,22 @@ app.get("/", authenticateToken, (request, response) => {
             "bearerAuth": []
     }] */
     response.sendFile(path.join(__dirname, "structure.png"));
+});
+
+app.post("/balance", authenticateToken, (request, response) => {
+    /* #swagger.security = [{
+            "bearerAuth": []
+    }] */
+    const username = request.user.username;
+
+    const allUsers = get_data();
+    const me = allUsers.find(u => u.username === username);
+
+    if (!me) {
+        return response.status(404).json({ error: "User not found" });
+    }
+
+    response.json({ balance: me.money });
 });
 
 app.post("/verify", authenticateToken, (request, response) => {
