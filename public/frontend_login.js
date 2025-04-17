@@ -1,5 +1,4 @@
-﻿const TokenHeader = new Headers();
-document.addEventListener("DOMContentLoaded", () => {
+﻿document.addEventListener("DOMContentLoaded", () => {
     const form = document.querySelector("form");
 
     form.addEventListener("submit", async (e) => {
@@ -20,6 +19,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 const loginData = await loginRes.json();
                 alert(`Welcome back, ${loginData.username}!`);
                 document.cookie = `authorization=${loginData.token}`
+                window.location.href = "/";
                 return;
             }
 
@@ -33,6 +33,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 const registerData = await registerRes.json();
                 alert(`Account created! Welcome, ${registerData.username}`);
                 document.cookie = `authorization=${registerData.token}`
+                window.location.href = "/";
             } else {
                 const error = await registerRes.json();
                 alert("Register failed: " + (error.error || "Unknown error"));

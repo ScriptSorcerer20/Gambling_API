@@ -62,8 +62,10 @@ function authenticateToken(request, response, next) {
 }
 
 app.post("/register", (request, response) => {
-    const { username, password } = request.body;
-    if (!username && !password)
+    let { username, password } = request.body;
+    username = username.toLowerCase();
+
+    if (!username || !password)
         return response.status(400).json({ error: "Username and password are required" });
 
     const users = get_data();
@@ -71,19 +73,19 @@ app.post("/register", (request, response) => {
         return response.status(400).json({ error: "Username already exists" });
     }
 
-
     const token = generateAccessToken({ username });
     saveUser({ username, password, token, "money": 200 });
 
-    response.json({ username, token });
+    response.json({ lower_username, token });
 });
 
 app.get("/login", (request, response) => {
     response.sendFile(path.join(__dirname, ".\\public\\login.html"));
 })
 app.post("/login", (request, response) => {
-    const { username, password } = request.body;
-    if (!username && !password)
+    let { username, password } = request.body;
+    username = username.toLowerCase();
+    if (!username || !password)
         return response.status(400).json({ error: "Username and password are required" });
 
     const users = get_data();
@@ -105,15 +107,15 @@ app.get("/", authenticateToken, (request, response) => {
     /* #swagger.security = [{
             "bearerAuth": []
     }] */
-    response.sendFile(path.join(__dirname, "structure.png"));
+    response.sendFile(path.join(__dirname, ".\\public\\home.html"));
 });
 
-app.post("/balance", authenticateToken, (request, response) => {
+app.get("/balance", authenticateToken, (request, response) => {
     /* #swagger.security = [{
             "bearerAuth": []
     }] */
     const username = request.user.username;
-
+    console.log(username);
     const allUsers = get_data();
     const me = allUsers.find(u => u.username === username);
 
@@ -121,7 +123,7 @@ app.post("/balance", authenticateToken, (request, response) => {
         return response.status(404).json({ error: "User not found" });
     }
 
-    response.json({ balance: me.money });
+    response.json({ balance: me.money }).status(200);
 });
 
 app.post("/verify", authenticateToken, (request, response) => {
@@ -129,13 +131,27 @@ app.post("/verify", authenticateToken, (request, response) => {
 });
 
 app.delete("/logout", authenticateToken, (request, response) => {
+    /* #swagger.security = [{
+            "bearerAuth": []
+    }] */
     const username = request.user.username;
     const users = get_data();
     const user = users.find(u => u.username === username);
+
+    // 1) Clear the HttpOnly cookie in the browser
+    response.clearCookie("token", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "Strict"
+    });
+
+    // 2) Delete the token from your JSON store
     if (user) {
         delete user.token;
         save_data(users);
     }
+
+    // 3) Send final response
     response.json({ message: "Logged out successfully." });
 });
 
