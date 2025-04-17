@@ -83,3 +83,35 @@ button.logout {
 .hidden {
     display: none;
 }
+
+#join-form {
+    margin-top: 20px;
+    gap: 10px;
+    display: none; /* default hidden */
+}
+
+#join-form:not(.hidden) {
+    display: flex;
+}
+
+#join-form input {
+    padding: 10px;
+    border-radius: 8px;
+    border: 2px solid #0f0;
+    background-color: #111;
+    color: #0f0;
+    font-size: 16px;
+    box-shadow: 0 0 5px #0f0 inset;
+    width: 200px;
+}
+
+#join-form button {
+    background-color: #0f0;
+    color: #000;
+    font-weight: bold;
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    transition: 0.2s;
+}
