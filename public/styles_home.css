@@ -57,3 +57,29 @@ button.logout {
     gap: 20px;
     margin-top: 30px;
 }
+
+.lobby-room {
+    background: rgba(0, 0, 0, 0.7);
+    border: 2px solid #0f0;
+    border-radius: 12px;
+    padding: 30px;
+    margin-top: 40px;
+    width: 400px;
+    text-align: center;
+    box-shadow: 0 0 10px #0f0;
+}
+
+.lobby-room h2 {
+    color: #0f0;
+    font-size: 20px;
+    margin-bottom: 20px;
+    text-shadow: 0 0 5px #0f0;
+}
+
+#player-list {
+    color: #fff;
+}
+
+.hidden {
+    display: none;
+}
