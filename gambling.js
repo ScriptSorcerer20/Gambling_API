@@ -2,15 +2,17 @@ const express = require("express");
 const app = express();
 const swaggerUi = require("swagger-ui-express");
 const swaggerDocument = require("./swagger.json");
-
 const path = require("path");
+app.use(express.static(path.join(__dirname, "public")));
 const fs = require("fs");
 const dotenv = require("dotenv").config();
 const jwt = require("jsonwebtoken");
+const cookieParser = require("cookie-parser");
 const port = 3000;
 
 app.use(express.json());
 app.use("/swagger-ui", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+app.use(cookieParser());
 
 function get_data() {
     const dataPath = path.join(__dirname, "data.json");
@@ -39,9 +41,9 @@ function authenticateToken(request, response, next) {
     /* #swagger.security = [{
         "bearerAuth": []
 }] */
-    const authHeader = request.headers.authorization;
-    console.log(authHeader);
-    const token = authHeader && authHeader.split(" ")[1];
+    const token =
+        request.headers.authorization?.split(" ")[1] ||
+        request.cookies.authorization;
 
     if (token == null) return response.sendStatus(401);
 
@@ -69,12 +71,16 @@ app.post("/register", (request, response) => {
         return response.status(400).json({ error: "Username already exists" });
     }
 
+
     const token = generateAccessToken({ username });
-    saveUser({ username, password, token });
+    saveUser({ username, password, token, "money": 200 });
 
     response.json({ username, token });
 });
 
+app.get("/login", (request, response) => {
+    response.sendFile(path.join(__dirname, ".\\public\\login.html"));
+})
 app.post("/login", (request, response) => {
     const { username, password } = request.body;
     if (!username && !password)
@@ -100,6 +106,22 @@ app.get("/", authenticateToken, (request, response) => {
             "bearerAuth": []
     }] */
     response.sendFile(path.join(__dirname, "structure.png"));
+});
+
+app.post("/balance", authenticateToken, (request, response) => {
+    /* #swagger.security = [{
+            "bearerAuth": []
+    }] */
+    const username = request.user.username;
+
+    const allUsers = get_data();
+    const me = allUsers.find(u => u.username === username);
+
+    if (!me) {
+        return response.status(404).json({ error: "User not found" });
+    }
+
+    response.json({ balance: me.money });
 });
 
 app.post("/verify", authenticateToken, (request, response) => {
