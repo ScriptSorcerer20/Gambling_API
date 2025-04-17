@@ -1,6 +1,8 @@
 document.addEventListener("DOMContentLoaded", async () => {
     const logoutButton = document.getElementById("logout");
     const balance = document.getElementById("balance");
+    const hostButton = document.getElementById("host");
+    const joinButton = document.getElementById("join");
     try {
         const balanceRes = await fetch('/balance', {
             method: "GET",
@@ -34,6 +36,32 @@ document.addEventListener("DOMContentLoaded", async () => {
             }
         } catch (err) {
             console.log("Logout error:", err);
+        }
+    });
+    hostButton.addEventListener("click", async (e) => {
+        e.preventDefault();
+        try {
+            const hostRes = await fetch('/lobby/create', {
+                method: "GET",
+                headers: {
+                    "Content-Type": "application/json",
+                }
+            });
+            if (hostRes.ok) {
+                const lobbyId = await hostRes.text();
+                document.getElementById("lobby-id").textContent = lobbyId;
+                document.getElementById("lobby-room").classList.remove("hidden");
+                setInterval(async () => {
+                    const res = await fetch(`/lobby/players?lobbyId=${lobbyId}`);
+                    const data = await res.json();
+                    const playerList = document.getElementById("player-list");
+                    playerList.innerHTML = data.players.map(p => `<p>${p}</p>`).join("") || "<p>No players yet</p>";
+                }, 3000);
+            } else {
+                console.log("Failed to create lobby:" + await hostRes.text());
+            }
+        } catch (err) {
+            console.log("Lobby create error:", err);
         }
     });
 });

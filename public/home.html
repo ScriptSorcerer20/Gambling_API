@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <title>Home</title>
     <link rel="stylesheet" href="styles_home.css">
-    <script src="frontend_home.js" defer></script> <!-- make sure this is included -->
 </head>
 <body>
 <button class="logout" id="logout">Logout</button>
@@ -12,8 +11,15 @@
     Balance: $<span id="balance">0</span>
 </div>
 <div class="lobby-buttons">
-    <button class="host">Host Lobby</button>
-    <button class="join">Join Lobby</button>
+    <button id="host">Host Lobby</button>
+    <button id="join">Join Lobby</button>
+</div>
+<div id="lobby-room" class="lobby-room hidden">
+    <h2>Lobby ID: <span id="lobby-id">N/A</span></h2>
+    <div id="player-list">
+        <p>Waiting for players...</p>
+    </div>
 </div>
 </body>
+<script src="frontend_home.js" defer></script>
 </html>
