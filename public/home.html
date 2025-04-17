@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <title>Home</title>
     <link rel="stylesheet" href="styles_home.css">
+    <script src="frontend_home.js" defer></script> <!-- make sure this is included -->
 </head>
 <body>
-<button class="logout">
-    Logout
-</button>
-<button class="balance">
-    Check Balance
-</button>
+<button class="logout" id="logout">Logout</button>
+
+<div class="balance">
+    Balance: $<span id="balance">0</span>
+</div>
 </body>
 </html>

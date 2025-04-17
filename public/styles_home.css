@@ -46,6 +46,8 @@ button.logout {
     font-size: 14px;
 }
 
-button.balance {
+.balance {
     margin-top: 20px;
+    color: #0f0;
+    text-shadow: 0 0 5px #0f0, 0 0 10px #0f0;
 }
