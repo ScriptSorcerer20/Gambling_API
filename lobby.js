@@ -33,13 +33,12 @@ app.get("/lobby/create", async (req, res) => {
 
 app.get("/lobby/join", async (req, res) => {
     let lobbyId = req.query.lobbyId;
-    let name = req.query.name;
+    let username = req.query.username;
 
     const users = get_data();
-    const user = (users.find(u => u.username === name))
+    const user = users.find(u => u.username === username);
     if (!user) {
-        res.status(401).json({ error: "User doesn't exist or is required" });
-
+        return res.status(401).json({ error: "User doesn't exist" });
     }
 
     await joinLobby(lobbyId, user.username);
@@ -48,9 +47,11 @@ app.get("/lobby/join", async (req, res) => {
         playerMap[lobbyId] = [];
     }
 
-    playerMap[lobbyId].push(name);
+    if (!playerMap[lobbyId].includes(username)) {
+        playerMap[lobbyId].push(username);
+    }
 
-    res.send({lobbyId: lobbyId, name: name});
+    res.json({ lobbyId, username });
 });
 
 app.get("/lobby/players", async (req, res) => {
