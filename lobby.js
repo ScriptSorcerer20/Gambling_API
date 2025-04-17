@@ -10,6 +10,8 @@ async function createLobby() {
     return lobbyId;
 }
 
+as
+
 app.get("/lobby/create", async (req, res) => {
     let lobbyId = await createLobby();
     res.send("Lobby ID: " + lobbyId);
