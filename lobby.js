@@ -21,18 +21,25 @@ async function joinLobby(lobbyId, player_name) {
 }
 
 app.get("/lobby/create", async (req, res) => {
+    const username = req.query.username;
+
+    if (!username) {
+        return res.status(400).send("Username is required");
+    }
+
     let lobbyId = await createLobby();
-    res.send(lobbyId).redirect("/lobby/join");
+    res.redirect(`/lobby/join?lobbyId=${lobbyId}&username=${username}`);
 })
 
 app.get("/lobby/join", async (req, res) => {
     let lobbyId = req.query.lobbyId;
-    let name = req.body.username;
+    let name = req.query.name;
 
     const users = get_data();
     const user = (users.find(u => u.username === name))
     if (!user) {
-        res.sendStatus(401).json({ error: "User doesnt exist are required" });
+        res.status(401).json({ error: "User doesn't exist or is required" });
+
     }
 
     await joinLobby(lobbyId, user.username);
@@ -43,7 +50,7 @@ app.get("/lobby/join", async (req, res) => {
 
     playerMap[lobbyId].push(name);
 
-    res.send(lobbyId + "" + name);
+    res.send({lobbyId: lobbyId, name: name});
 });
 
 app.get("/lobby/players", async (req, res) => {
