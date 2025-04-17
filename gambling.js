@@ -34,7 +34,7 @@ function saveUser(user) {
 }
 
 function generateAccessToken(user) {
-    return jwt.sign(user, process.env.TOKEN_SECRET, { expiresIn: "1800s" });
+    return jwt.sign(user, process.env.TOKEN_SECRET, {expiresIn: "1800s"});
 }
 
 function authenticateToken(request, response, next) {
@@ -53,7 +53,7 @@ function authenticateToken(request, response, next) {
         const users = get_data();
         const foundUser = users.find(u => u.username === user.username);
         if (!foundUser || foundUser.token !== token) {
-            return response.status(403).json({ error: "Token has been revoked or is invalid" });
+            return response.status(403).json({error: "Token has been revoked or is invalid"});
         }
 
         request.user = user;
@@ -62,45 +62,45 @@ function authenticateToken(request, response, next) {
 }
 
 app.post("/register", (request, response) => {
-    let { username, password } = request.body;
-    username = username.toLowerCase();
+    let {username, password} = request.body;
+    let lower_username = username.toLowerCase();
 
     if (!username || !password)
-        return response.status(400).json({ error: "Username and password are required" });
+        return response.status(400).json({error: "Username and password are required"});
 
     const users = get_data();
     if (users.some(u => u.username === username)) {
-        return response.status(400).json({ error: "Username already exists" });
+        return response.status(400).json({error: "Username already exists"});
     }
 
-    const token = generateAccessToken({ username });
-    saveUser({ username, password, token, "money": 200 });
+    const token = generateAccessToken({username});
+    saveUser({username, password, token, "money": 200});
 
-    response.json({ lower_username, token });
+    response.json({lower_username, token});
 });
 
 app.get("/login", (request, response) => {
     response.sendFile(path.join(__dirname, ".\\public\\login.html"));
 })
 app.post("/login", (request, response) => {
-    let { username, password } = request.body;
+    let {username, password} = request.body;
     username = username.toLowerCase();
     if (!username || !password)
-        return response.status(400).json({ error: "Username and password are required" });
+        return response.status(400).json({error: "Username and password are required"});
 
     const users = get_data();
     const user = users.find(u => u.username === username);
-    if (!user) return response.status(401).json({ error: "Invalid credentials" });
+    if (!user) return response.status(401).json({error: "Invalid credentials"});
 
     if (user.password !== password) {
-        response.status(401).json({ error: "Invalid password" });
+        response.status(401).json({error: "Invalid password"});
     }
 
-    const token = generateAccessToken({ username });
+    const token = generateAccessToken({username});
     user.token = token;
     save_data(users);
 
-    response.json({ username, token });
+    response.json({username, token});
 });
 
 app.get("/", authenticateToken, (request, response) => {
@@ -120,14 +120,14 @@ app.get("/balance", authenticateToken, (request, response) => {
     const me = allUsers.find(u => u.username === username);
 
     if (!me) {
-        return response.status(404).json({ error: "User not found" });
+        return response.status(404).json({error: "User not found"});
     }
 
-    response.json({ balance: me.money }).status(200);
+    response.json({balance: me.money}).status(200);
 });
 
 app.post("/verify", authenticateToken, (request, response) => {
-    response.json({ valid: true, user: request.user });
+    response.json({valid: true, user: request.user});
 });
 
 app.delete("/logout", authenticateToken, (request, response) => {
@@ -139,7 +139,7 @@ app.delete("/logout", authenticateToken, (request, response) => {
     const user = users.find(u => u.username === username);
 
     // 1) Clear the HttpOnly cookie in the browser
-    response.clearCookie("token", {
+    response.clearCookie("authorization", {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "Strict"
@@ -152,7 +152,7 @@ app.delete("/logout", authenticateToken, (request, response) => {
     }
 
     // 3) Send final response
-    response.json({ message: "Logged out successfully." });
+    response.json({message: "Logged out successfully."});
 });
 
 app.listen(port, () => {

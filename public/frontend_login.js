@@ -3,11 +3,9 @@
 
     form.addEventListener("submit", async (e) => {
         e.preventDefault();
-
         const username = form.username.value;
         const password = form.password.value;
         const credentials = {username, password};
-
         try {
             const loginRes = await fetch("/login", {
                 method: "POST",
@@ -17,7 +15,7 @@
 
             if (loginRes.ok) {
                 const loginData = await loginRes.json();
-                alert(`Welcome back, ${loginData.username}!`);
+                alert(`Welcome back, ${loginData.lower_username}!`);
                 document.cookie = `authorization=${loginData.token}`
                 window.location.href = "/";
                 return;
