@@ -22,12 +22,12 @@ async function joinLobby(lobbyId, player_name) {
 
 app.get("/lobby/create", async (req, res) => {
     let lobbyId = await createLobby();
-    res.send(lobbyId);
+    res.send(lobbyId).redirect("/lobby/join");
 })
 
 app.get("/lobby/join", async (req, res) => {
     let lobbyId = req.query.lobbyId;
-    let name = req.query.name;
+    let name = req.body.username;
 
     const users = get_data();
     const user = (users.find(u => u.username === name))
