@@ -105,7 +105,7 @@ app.get("/", authenticateToken, (request, response) => {
     /* #swagger.security = [{
             "bearerAuth": []
     }] */
-    response.sendFile(path.join(__dirname, "structure.png"));
+    response.sendFile(path.join(__dirname, ".\\public\\home.html"));
 });
 
 app.post("/balance", authenticateToken, (request, response) => {
