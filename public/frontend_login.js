@@ -15,7 +15,7 @@
 
             if (loginRes.ok) {
                 const loginData = await loginRes.json();
-                alert(`Welcome back, ${loginData.lower_username}!`);
+                alert(`Welcome back, ${loginData.username}!`);
                 document.cookie = `authorization=${loginData.token}`
                 window.location.href = "/";
                 return;

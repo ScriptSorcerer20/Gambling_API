@@ -3,12 +3,22 @@
     color: #fff;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
     height: 100vh;
     margin: 0;
 }
 
+/* Add styling for the heading */
+h1 {
+    font-size: 28px;
+    color: #0f0;
+    margin-bottom: 20px;
+    text-shadow: 0 0 5px #0f0, 0 0 10px #0f0;
+}
+
+/* Your form stays centered below the heading */
 form {
     background: rgba(0, 0, 0, 0.85);
     border: 2px solid #0f0;
