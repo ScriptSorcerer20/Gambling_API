@@ -3,18 +3,17 @@
     "username": "jerome",
     "password": "Sigma",
     "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJsb3dlcl91c2VybmFtZSI6Implcm9tZSIsImlhdCI6MTc0NDg4OTY3MSwiZXhwIjoxNzQ0ODkxNDcxfQ.zYg3uxh_iNZ2xdEma8p3p-URT3Xa7wnYiQyOx0-QTac",
-    "money": 200
+    "money": 400
   },
   {
     "username": "Gianimon",
     "password": "gianimon",
     "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6IkdpYW5pbW9uIiwiaWF0IjoxNzQ0ODc0NTczLCJleHAiOjE3NDQ4NzYzNzN9.dGp5WTKIDVhomKZ8J7nevz8O7PqwRhR9wEgeyDtL_XE",
-    "money": 200
+    "money": 300
   },
   {
     "username": "any",
     "password": "any",
-    "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6ImFueSIsImlhdCI6MTc0NDg4OTk1OSwiZXhwIjoxNzQ0ODkxNzU5fQ.TA6BA09DQlmUqEzQxD_wF0r-VyqCMccoxq8SxPnB9-4",
-    "money": 200
+    "money": 300
   }
 ]

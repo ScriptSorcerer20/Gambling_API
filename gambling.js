@@ -14,6 +14,10 @@ app.use(express.json());
 app.use("/swagger-ui", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.use(cookieParser());
 
+/*
+    Here are Helper function  -----------------------------------------------------------------------------------------------
+ */
+
 function get_data() {
     const dataPath = path.join(__dirname, "data.json");
     if (!fs.existsSync(dataPath)) {
@@ -60,6 +64,10 @@ function authenticateToken(request, response, next) {
         next();
     });
 }
+
+/*
+    Here is the the Login logic -----------------------------------------------------------------------------------------------
+ */
 
 app.post("/register", (request, response) => {
     let {username, password} = request.body;
@@ -154,6 +162,73 @@ app.delete("/logout", authenticateToken, (request, response) => {
     // 3) Send final response
     response.json({message: "Logged out successfully."});
 });
+
+
+/*
+    Here will be the Game logic -----------------------------------------------------------------------------------------------
+ */
+
+
+const playerMap = {};
+
+async function createLobby() {
+    let response = await fetch("https://www.deckofcardsapi.com/api/deck/new/shuffle/?deck_count=1")
+    let data = await response.json();
+    let lobbyId = data.deck_id
+    await fetch(`https://www.deckofcardsapi.com/api/deck/${lobbyId}/pile/players/add/?cards=`)
+    console.log(lobbyId);
+    return lobbyId;
+}
+
+async function joinLobby(lobbyId, player_name) {
+
+    let response = await fetch(`https://www.deckofcardsapi.com/api/deck/${lobbyId}/pile/${player_name}/add/?cards=`)
+    console.log(response);
+
+}
+
+app.get("/lobby/create", authenticateToken, async (req, res) => {
+    const username = req.query.username;
+
+    if (!username) {
+        return res.status(400).send("Username is required");
+    }
+
+    let lobbyId = await createLobby();
+
+    if (!playerMap[lobbyId]) {
+        playerMap[lobbyId] = [];
+    }
+
+    if (!playerMap[lobbyId].includes(username)) {
+        playerMap[lobbyId].push(username);
+    }
+    res.redirect(`/lobby/join?lobbyId=${lobbyId}&username=${username}`);
+})
+
+app.get("/lobby/join", authenticateToken, async (req, res) => {
+    let lobbyId = req.query.lobbyId;
+    let username = req.query.username;
+
+    const users = get_data();
+    const user = users.find(u => u.username === username);
+    if (!user) {
+        return res.status(401).json({error: "User doesn't exist"});
+    }
+    console.log(playerMap);
+    if (lobbyId in playerMap) {
+        await joinLobby(lobbyId, user.username);
+
+        res.json({lobbyId, username});
+    } else console.log("Lobby with " + lobbyId + " not found.");
+});
+
+app.get("/lobby/players", authenticateToken, async (req, res) => {
+    let lobbyId = req.query.lobbyId;
+    let players = playerMap[lobbyId] || [];
+    res.json({players});
+});
+
 
 app.listen(port, () => {
     console.log("Server is running on port " + port);
