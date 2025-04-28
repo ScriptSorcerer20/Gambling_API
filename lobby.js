@@ -16,8 +16,10 @@ async function createLobby() {
 }
 
 async function joinLobby(lobbyId, player_name) {
-    let response = await fetch(`https://www.deckofcardsapi.com/api/deck/${lobbyId}/pile/${player_name}/add/?cards=`)
-    console.log(response);
+    if (playerMap[lobbyId]) {
+        let response = await fetch(`https://www.deckofcardsapi.com/api/deck/${lobbyId}/pile/${player_name}/add/?cards=`)
+        console.log(response);
+    } else console.log("Lobby with "+lobbyId+" not found.");
 }
 
 app.get("/lobby/create", async (req, res) => {
