@@ -42,21 +42,19 @@ app.get("/lobby/join", async (req, res) => {
     if (!user) {
         return res.status(401).json({error: "User doesn't exist"});
     }
-    for (let lobby of playerMap) {
-        if (playerMap[lobby.lobbyId] == lobbyId) {
-            await joinLobby(lobbyId, user.username);
+    if (playerMap[lobbyId]) {
+        await joinLobby(lobbyId, user.username);
 
-            if (!playerMap[lobbyId]) {
-                playerMap[lobbyId] = [];
-            }
+        if (!playerMap[lobbyId]) {
+            playerMap[lobbyId] = [];
+        }
 
-            if (!playerMap[lobbyId].includes(username)) {
-                playerMap[lobbyId].push(username);
-            }
+        if (!playerMap[lobbyId].includes(username)) {
+            playerMap[lobbyId].push(username);
+        }
 
-            res.json({lobbyId, username});
-        } else console.log("Lobby with " + lobbyId + " not found.");
-    }
+        res.json({lobbyId, username});
+    } else console.log("Lobby with " + lobbyId + " not found.");
 });
 
 app.get("/lobby/players", async (req, res) => {
