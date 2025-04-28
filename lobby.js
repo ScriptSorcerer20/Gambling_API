@@ -30,6 +30,14 @@ app.get("/lobby/create", async (req, res) => {
     }
 
     let lobbyId = await createLobby();
+
+    if (!playerMap[lobbyId]) {
+        playerMap[lobbyId] = [];
+    }
+
+    if (!playerMap[lobbyId].includes(username)) {
+        playerMap[lobbyId].push(username);
+    }
     res.redirect(`/lobby/join?lobbyId=${lobbyId}&username=${username}`);
 })
 
@@ -45,14 +53,6 @@ app.get("/lobby/join", async (req, res) => {
     console.log(playerMap);
     if (lobbyId in playerMap) {
         await joinLobby(lobbyId, user.username);
-
-        if (!playerMap[lobbyId]) {
-            playerMap[lobbyId] = [];
-        }
-
-        if (!playerMap[lobbyId].includes(username)) {
-            playerMap[lobbyId].push(username);
-        }
 
         res.json({lobbyId, username});
     } else console.log("Lobby with " + lobbyId + " not found.");
