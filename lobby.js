@@ -43,7 +43,7 @@ app.get("/lobby/join", async (req, res) => {
         return res.status(401).json({error: "User doesn't exist"});
     }
     console.log(playerMap);
-    if (playerMap[lobbyId]) {
+    if (lobbyId in playerMap) {
         await joinLobby(lobbyId, user.username);
 
         if (!playerMap[lobbyId]) {
