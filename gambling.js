@@ -111,11 +111,30 @@ app.post("/login", (request, response) => {
     response.json({username, token});
 });
 
-app.get("/", authenticateToken, (request, response) => {
-    /* #swagger.security = [{
-            "bearerAuth": []
-    }] */
-    response.sendFile(path.join(__dirname, "./public/home.html"));
+app.get("/", (req, res) => {
+    const token =
+        req.headers.authorization?.split(" ")[1] ||
+        req.cookies.authorization;
+
+    if (!token) {
+        return res.sendFile(path.join(__dirname, "./public/unauthorized.html"));
+    }
+
+    jwt.verify(token, process.env.TOKEN_SECRET, (err, user) => {
+        if (err) {
+            return res.sendFile(path.join(__dirname, "./public/unauthorized.html"));
+        }
+
+        const users = get_data();
+        const foundUser = users.find(u => u.username === user.username);
+
+        if (!foundUser || foundUser.token !== token) {
+            return res.sendFile(path.join(__dirname, "./public/unauthorized.html"));
+        }
+
+        req.user = user;
+        res.sendFile(path.join(__dirname, "./public/home.html"));
+    });
 });
 
 app.get("/balance", authenticateToken, (request, response) => {
