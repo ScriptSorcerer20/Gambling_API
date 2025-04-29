@@ -35,7 +35,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             const logoutRes = await fetch('/logout', {method: "DELETE"});
             if (logoutRes.ok) {
                 document.cookie = "authorization=; Max-Age=0; path=/;";
-                window.location.href = "/login";
+                window.location.href = "/login.html";
             }
         } catch (err) {
             console.log("Logout error:", err);
@@ -91,11 +91,9 @@ document.addEventListener("DOMContentLoaded", async () => {
             const joinRes = await fetch(`/lobby/join?lobbyId=${lobbyId}&username=${username}`);
             if (joinRes.ok) {
                 const {lobbyId: finalLobbyId} = await joinRes.json();
-
                 document.getElementById("lobby-id").textContent = finalLobbyId;
                 document.getElementById("lobby-room").classList.remove("hidden");
                 joinForm.classList.add("hidden");
-
                 setInterval(async () => {
                     const res = await fetch(`/lobby/players?lobbyId=${finalLobbyId}`);
                     const data = await res.json();
