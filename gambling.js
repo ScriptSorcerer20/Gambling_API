@@ -201,7 +201,6 @@ async function createLobby() {
 }
 
 async function joinLobby(lobbyId, player_name) {
-
     let response = await fetch(`https://www.deckofcardsapi.com/api/deck/${lobbyId}/pile/${player_name}/add/?cards=`)
     console.log(response);
 
@@ -233,14 +232,20 @@ app.get("/lobby/join", authenticateToken, async (req, res) => {
     const users = get_data();
     const user = users.find(u => u.username === username);
     if (!user) {
-        return res.status(401).json({error: "User doesn't exist"});
+        return res.status(401).json({ error: "User doesn't exist" });
     }
-    console.log(playerMap);
+
     if (lobbyId in playerMap) {
         await joinLobby(lobbyId, user.username);
+        if (!playerMap[lobbyId].includes(username)) {
+            playerMap[lobbyId].push(username);
+        }
 
-        res.json({lobbyId, username});
-    } else console.log("Lobby with " + lobbyId + " not found.");
+        res.json({ lobbyId, username });
+    } else {
+        console.log("Lobby with " + lobbyId + " not found.");
+        return res.status(404).json({ error: "Lobby not found" });
+    }
 });
 
 app.get("/lobby/players", authenticateToken, async (req, res) => {
