@@ -115,7 +115,7 @@ app.get("/", authenticateToken, (request, response) => {
     /* #swagger.security = [{
             "bearerAuth": []
     }] */
-    response.sendFile(path.join(__dirname, ".\\public\\home.html"));
+    response.sendFile(path.join(__dirname, "./public/home.html"));
 });
 
 app.get("/balance", authenticateToken, (request, response) => {
