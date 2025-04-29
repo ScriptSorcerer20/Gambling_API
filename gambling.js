@@ -8,7 +8,7 @@ const fs = require("fs");
 const dotenv = require("dotenv").config();
 const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
-const port = 443;
+const port = 25565;
 
 app.use(express.json());
 app.use("/swagger-ui", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
@@ -230,6 +230,6 @@ app.get("/lobby/players", authenticateToken, async (req, res) => {
 });
 
 
-app.listen(port, "imsserver.internet-box.ch", () => {
+app.listen(port, () => {
     console.log("Server is running on port " + port);
 });
