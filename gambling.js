@@ -8,7 +8,7 @@ const fs = require("fs");
 const dotenv = require("dotenv").config();
 const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
-const port = 3000;
+const port = 25565;
 
 app.use(express.json());
 app.use("/swagger-ui", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
@@ -115,7 +115,7 @@ app.get("/", authenticateToken, (request, response) => {
     /* #swagger.security = [{
             "bearerAuth": []
     }] */
-    response.sendFile(path.join(__dirname, ".\\public\\home.html"));
+    response.sendFile(path.join(__dirname, "./public/home.html"));
 });
 
 app.get("/balance", authenticateToken, (request, response) => {
