@@ -88,7 +88,7 @@ app.post("/register", (request, response) => {
 });
 
 app.get("/login", (request, response) => {
-    response.sendFile(path.join(__dirname, ".\\public\\login.html"));
+    response.sendFile(path.join(__dirname, "./public/login.html"));
 })
 app.post("/login", (request, response) => {
     let {username, password} = request.body;
