@@ -93,6 +93,7 @@ app.get("/login", (request, response) => {
 app.post("/login", (request, response) => {
     let {username, password} = request.body;
     username = username.toLowerCase();
+
     if (!username || !password)
         return response.status(400).json({error: "Username and password are required"});
 
@@ -101,7 +102,7 @@ app.post("/login", (request, response) => {
     if (!user) return response.status(401).json({error: "Invalid credentials"});
 
     if (user.password !== password) {
-        response.status(401).json({error: "Invalid password"});
+        return response.status(401).json({error: "Invalid password"});
     }
 
     const token = generateAccessToken({username});
