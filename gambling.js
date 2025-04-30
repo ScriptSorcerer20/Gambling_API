@@ -240,7 +240,6 @@ app.get("/lobby/join", authenticateToken, async (req, res) => {
         if (!playerMap[lobbyId].includes(username)) {
             playerMap[lobbyId].push(username);
         }
-
         res.json({ lobbyId, username });
     } else {
         console.log("Lobby with " + lobbyId + " not found.");

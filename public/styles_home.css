@@ -115,3 +115,14 @@ button.logout {
     cursor: pointer;
     transition: 0.2s;
 }
+
+.error-message {
+    color: red;
+    margin-top: 10px;
+    font-weight: bold;
+    text-shadow: 0 0 3px red;
+}
+
+.hidden {
+    display: none;
+}
