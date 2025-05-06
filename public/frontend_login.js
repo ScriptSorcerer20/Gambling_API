@@ -44,10 +44,8 @@
         const loadingScreen = document.getElementById("loading-screen");
         const loadingText = document.getElementById("loading-text");
         const progress = document.getElementById("progress");
-
         loadingText.textContent = message;
         loadingScreen.classList.remove("hidden");
-
         let percent = 0;
         const interval = setInterval(() => {
             percent += Math.floor(Math.random() * 10) + 5;
