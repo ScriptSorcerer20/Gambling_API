@@ -29,7 +29,7 @@
 
             if (registerRes.ok) {
                 const registerData = await registerRes.json();
-                alert(`Account created! Welcome, ${registerData.username}`);
+                alert(`Account created! Welcome!`);
                 document.cookie = `authorization=${registerData.token}`
                 window.location.href = "/";
             } else {
