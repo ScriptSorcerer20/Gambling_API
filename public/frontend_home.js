@@ -6,6 +6,28 @@ document.addEventListener("DOMContentLoaded", async () => {
     const joinForm = document.getElementById("join-form");
     const joinCodeInput = document.getElementById("join-code");
     const joinSubmit = document.getElementById("submit-join");
+    const leaveButton = document.getElementById("leave-button");
+
+    leaveButton.addEventListener("click", async () => {
+        const username = await getUsernameFromToken();
+        const lobbyId = document.getElementById("lobby-id").textContent;
+        try {
+            const res = await fetch(`/lobby/leave?lobbyId=${lobbyId}&username=${username}`, {
+                method: "DELETE",
+            });
+            if (res.ok) {
+                document.getElementById("lobby-room").classList.add("hidden");
+                document.getElementById("player-list").innerHTML = "<p>Waiting for players...</p>";
+                document.getElementById("lobby-id").textContent = "N/A";
+            } else {
+                const err = await res.json();
+                alert("Failed to leave lobby: " + (err.error || "Unknown error"));
+            }
+        } catch (err) {
+            console.error("Error leaving lobby:", err);
+            alert("Could not leave lobby.");
+        }
+    });
 
     const getUsernameFromToken = async () => {
         try {
@@ -17,6 +39,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             return null;
         }
     };
+
     try {
         const balanceRes = await fetch('/balance', {method: "GET"});
         if (balanceRes.ok) {

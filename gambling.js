@@ -90,25 +90,21 @@ app.post("/register", (request, response) => {
 app.get("/login", (request, response) => {
     response.sendFile(path.join(__dirname, "./public/login.html"));
 })
+
 app.post("/login", (request, response) => {
     let {username, password} = request.body;
     username = username.toLowerCase();
-
     if (!username || !password)
         return response.status(400).json({error: "Username and password are required"});
-
     const users = get_data();
     const user = users.find(u => u.username === username);
     if (!user) return response.status(401).json({error: "Invalid credentials"});
-
     if (user.password !== password) {
         return response.status(401).json({error: "Invalid password"});
     }
-
     const token = generateAccessToken({username});
     user.token = token;
     save_data(users);
-
     response.json({username, token});
 });
 
@@ -116,23 +112,18 @@ app.get("/", (req, res) => {
     const token =
         req.headers.authorization?.split(" ")[1] ||
         req.cookies.authorization;
-
     if (!token) {
         return res.sendFile(path.join(__dirname, "./public/unauthorized.html"));
     }
-
     jwt.verify(token, process.env.TOKEN_SECRET, (err, user) => {
         if (err) {
             return res.sendFile(path.join(__dirname, "./public/unauthorized.html"));
         }
-
         const users = get_data();
         const foundUser = users.find(u => u.username === user.username);
-
         if (!foundUser || foundUser.token !== token) {
             return res.sendFile(path.join(__dirname, "./public/unauthorized.html"));
         }
-
         req.user = user;
         res.sendFile(path.join(__dirname, "./public/home.html"));
     });
@@ -146,11 +137,9 @@ app.get("/balance", authenticateToken, (request, response) => {
     console.log(username);
     const allUsers = get_data();
     const me = allUsers.find(u => u.username === username);
-
     if (!me) {
         return response.status(404).json({error: "User not found"});
     }
-
     response.json({balance: me.money}).status(200);
 });
 
@@ -166,11 +155,9 @@ app.delete("/logout", authenticateToken, (request, response) => {
     const users = get_data();
     const user = users.find(u => u.username === username);
     let lobbyId = request.lobbyId;
-
     if (playerMap[lobbyId].includes(username)) {
         playerMap[lobbyId].splice(username, 1);
     }
-
     // 1) Clear the HttpOnly cookie in the browser
     response.clearCookie("authorization", {
         httpOnly: true,
@@ -213,17 +200,13 @@ async function joinLobby(lobbyId, player_name) {
 
 app.get("/lobby/create", authenticateToken, async (req, res) => {
     const username = req.query.username;
-
     if (!username) {
         return res.status(400).send("Username is required");
     }
-
     let lobbyId = await createLobby();
-
     if (!playerMap[lobbyId]) {
         playerMap[lobbyId] = [];
     }
-
     if (!playerMap[lobbyId].includes(username)) {
         playerMap[lobbyId].push(username);
     }
@@ -237,7 +220,7 @@ app.get("/lobby/join", authenticateToken, async (req, res) => {
     const users = get_data();
     const user = users.find(u => u.username === username);
     if (!user) {
-        return res.status(401).json({ error: "User doesn't exist" });
+        return res.status(401).json({error: "User doesn't exist"});
     }
 
     if (lobbyId in playerMap) {
@@ -245,23 +228,29 @@ app.get("/lobby/join", authenticateToken, async (req, res) => {
         if (!playerMap[lobbyId].includes(username)) {
             playerMap[lobbyId].push(username);
         }
-        res.json({ lobbyId, username });
+        res.json({lobbyId, username});
     } else {
         console.log("Lobby with " + lobbyId + " not found.");
-        return res.status(404).json({ error: "Lobby not found" });
+        return res.status(404).json({error: "Lobby not found"});
     }
 });
 
 app.delete("/lobby/leave", authenticateToken, async (req, res) => {
-    let lobbyId = req.query.lobbyId;
-    let username = req.query.username;
-
-    console.log(playerMap);
+    const lobbyId = req.query.lobbyId;
+    const username = req.query.username;
+    if (!lobbyId || !username) {
+        return res.status(400).json({error: "Missing lobbyId or username"});
+    }
     if (lobbyId in playerMap) {
-        playerMap[lobbyId].splice(username, 1);
-
-        res.send("Succesfully logged out.");
-    } else console.log("Couldn't leave");
+        const index = playerMap[lobbyId].indexOf(username);
+        if (index > -1) {
+            playerMap[lobbyId].splice(index, 1);
+            return res.json({message: "Successfully left lobby"});
+        } else {
+            return res.status(404).json({error: "User not in lobby"});
+        }
+    }
+    res.status(404).json({error: "Lobby not found"});
 });
 
 app.get("/lobby/players", authenticateToken, async (req, res) => {
