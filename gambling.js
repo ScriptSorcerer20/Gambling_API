@@ -252,6 +252,18 @@ app.get("/lobby/join", authenticateToken, async (req, res) => {
     }
 });
 
+app.delete("/lobby/leave", authenticateToken, async (req, res) => {
+    let lobbyId = req.query.lobbyId;
+    let username = req.query.username;
+
+    console.log(playerMap);
+    if (lobbyId in playerMap) {
+        playerMap[lobbyId].splice(username, 1);
+
+        res.send("Succesfully logged out.");
+    } else console.log("Couldn't leave");
+});
+
 app.get("/lobby/players", authenticateToken, async (req, res) => {
     let lobbyId = req.query.lobbyId;
     let players = playerMap[lobbyId] || [];
