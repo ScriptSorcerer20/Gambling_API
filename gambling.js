@@ -165,6 +165,11 @@ app.delete("/logout", authenticateToken, (request, response) => {
     const username = request.user.username;
     const users = get_data();
     const user = users.find(u => u.username === username);
+    let lobbyId = request.lobbyId;
+
+    if (playerMap[lobbyId].includes(username)) {
+        playerMap[lobbyId].splice(username, 1);
+    }
 
     // 1) Clear the HttpOnly cookie in the browser
     response.clearCookie("authorization", {
