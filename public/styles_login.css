@@ -62,3 +62,44 @@ button {
 button:hover {
     background: #1f1;
 }
+
+.hidden {
+    display: none !important;
+}
+
+#loading-screen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: #000;
+    color: #0f0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.loading-text {
+    font-size: 24px;
+    margin-bottom: 20px;
+    text-shadow: 0 0 10px #0f0;
+}
+
+.progress-bar {
+    width: 80%;
+    height: 20px;
+    border: 2px solid #0f0;
+    border-radius: 10px;
+    background: #111;
+}
+
+.progress {
+    height: 100%;
+    width: 0;
+    background-color: #0f0;
+    border-radius: 10px;
+    transition: width 0.3s ease;
+}
