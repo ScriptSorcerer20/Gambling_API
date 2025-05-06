@@ -220,7 +220,7 @@ app.get("/lobby/join", authenticateToken, async (req, res) => {
     const users = get_data();
     const user = users.find(u => u.username === username);
     if (!user) {
-        return res.status(401).json({error: "User doesn't exist"});
+        return res.status(401).json({ error: "User doesn't exist" });
     }
 
     if (lobbyId in playerMap) {
@@ -228,30 +228,34 @@ app.get("/lobby/join", authenticateToken, async (req, res) => {
         if (!playerMap[lobbyId].includes(username)) {
             playerMap[lobbyId].push(username);
         }
-        res.json({lobbyId, username});
+        res.json({ lobbyId, username });
     } else {
         console.log("Lobby with " + lobbyId + " not found.");
-        return res.status(404).json({error: "Lobby not found"});
+        return res.status(404).json({ error: "Lobby not found" });
     }
 });
 
 app.delete("/lobby/leave", authenticateToken, async (req, res) => {
     const lobbyId = req.query.lobbyId;
     const username = req.query.username;
+
     if (!lobbyId || !username) {
-        return res.status(400).json({error: "Missing lobbyId or username"});
+        return res.status(400).json({ error: "Missing lobbyId or username" });
     }
+
     if (lobbyId in playerMap) {
         const index = playerMap[lobbyId].indexOf(username);
         if (index > -1) {
             playerMap[lobbyId].splice(index, 1);
-            return res.json({message: "Successfully left lobby"});
+            return res.json({ message: "Successfully left lobby" });
         } else {
-            return res.status(404).json({error: "User not in lobby"});
+            return res.status(404).json({ error: "User not in lobby" });
         }
     }
-    res.status(404).json({error: "Lobby not found"});
+
+    res.status(404).json({ error: "Lobby not found" });
 });
+
 
 app.get("/lobby/players", authenticateToken, async (req, res) => {
     let lobbyId = req.query.lobbyId;
