@@ -148,32 +148,28 @@ app.post("/verify", authenticateToken, (request, response) => {
 });
 
 app.delete("/logout", authenticateToken, (request, response) => {
-    /* #swagger.security = [{
-            "bearerAuth": []
-    }] */
     const username = request.user.username;
     const users = get_data();
     const user = users.find(u => u.username === username);
-    let lobbyId = request.lobbyId;
-    if (playerMap[lobbyId].includes(username)) {
-        playerMap[lobbyId].splice(username, 1);
+    if (!user) return response.status(404).json({ error: "User not found" });
+    const lobbyId = user.lobbyId;
+    if (lobbyId && playerMap[lobbyId]) {
+        playerMap[lobbyId] = playerMap[lobbyId].filter(player => player !== username);
+        if (playerMap[lobbyId].length === 0) {
+            delete playerMap[lobbyId];
+        }
+        delete user.lobbyId;
     }
-    // 1) Clear the HttpOnly cookie in the browser
+    delete user.token;
+    save_data(users);
     response.clearCookie("authorization", {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: "Strict"
     });
-
-    // 2) Delete the token from your JSON store
-    if (user) {
-        delete user.token;
-        save_data(users);
-    }
-
-    // 3) Send final response
-    response.json({message: "Logged out successfully."});
+    response.json({ message: "Logged out successfully." });
 });
+
 
 
 /*
@@ -210,6 +206,12 @@ app.get("/lobby/create", authenticateToken, async (req, res) => {
     if (!playerMap[lobbyId].includes(username)) {
         playerMap[lobbyId].push(username);
     }
+    const users = get_data();
+    const user = users.find(u => u.username === username);
+    if (user) {
+        user.lobbyId = lobbyId;
+        save_data(users);
+    }
     res.redirect(`/lobby/join?lobbyId=${lobbyId}&username=${username}`);
 })
 
@@ -228,6 +230,8 @@ app.get("/lobby/join", authenticateToken, async (req, res) => {
         if (!playerMap[lobbyId].includes(username)) {
             playerMap[lobbyId].push(username);
         }
+        user.lobbyId = lobbyId;
+        save_data(users);
         res.json({ lobbyId, username });
     } else {
         console.log("Lobby with " + lobbyId + " not found.");
