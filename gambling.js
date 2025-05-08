@@ -147,19 +147,14 @@ app.post("/verify", authenticateToken, (request, response) => {
     response.json({valid: true, user: request.user});
 });
 
-app.delete("/logout", authenticateToken, (request, response) => {
+app.delete("/logout", authenticateToken, async (request, response) => {
     const username = request.user.username;
     const users = get_data();
     const user = users.find(u => u.username === username);
-    if (!user) return response.status(404).json({ error: "User not found" });
+    if (!user) return response.status(404).json({error: "User not found"});
     const lobbyId = user.lobbyId;
-    if (lobbyId && playerMap[lobbyId]) {
-        playerMap[lobbyId] = playerMap[lobbyId].filter(player => player !== username);
-        if (playerMap[lobbyId].length === 0) {
-            delete playerMap[lobbyId];
-        }
-        delete user.lobbyId;
-    }
+    await leaveLobby(lobbyId, username);
+    await deleteLobby(lobbyId);
     delete user.token;
     save_data(users);
     response.clearCookie("authorization", {
@@ -167,10 +162,8 @@ app.delete("/logout", authenticateToken, (request, response) => {
         secure: process.env.NODE_ENV === "production",
         sameSite: "Strict"
     });
-    response.json({ message: "Logged out successfully." });
+    response.json({message: "Logged out successfully."});
 });
-
-
 
 /*
     Here will be the Game logic -----------------------------------------------------------------------------------------------
@@ -186,6 +179,20 @@ async function createLobby() {
     await fetch(`https://www.deckofcardsapi.com/api/deck/${lobbyId}/pile/players/add/?cards=`)
     console.log(lobbyId);
     return lobbyId;
+}
+
+async function leaveLobby(id, username) {
+    if (id && playerMap[id] && username) {
+        playerMap[id].splice(playerMap[id].indexOf(username), 1);
+    }
+}
+
+async function deleteLobby(id) {
+    if (id && playerMap[id]) {
+        if (playerMap[id].length === 0) {
+            playerMap[id].splice(playerMap.indexOf(id), 1);
+        }
+    }
 }
 
 async function joinLobby(lobbyId, player_name) {
