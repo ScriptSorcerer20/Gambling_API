@@ -134,7 +134,6 @@ app.get("/balance", authenticateToken, (request, response) => {
             "bearerAuth": []
     }] */
     const username = request.user.username;
-    console.log(username);
     const allUsers = get_data();
     const me = allUsers.find(u => u.username === username);
     if (!me) {
@@ -177,7 +176,6 @@ async function createLobby() {
     let data = await response.json();
     let lobbyId = data.deck_id
     await fetch(`https://www.deckofcardsapi.com/api/deck/${lobbyId}/pile/players/add/?cards=`)
-    console.log(lobbyId);
     return lobbyId;
 }
 
@@ -197,7 +195,6 @@ async function deleteLobby(id) {
 
 async function joinLobby(lobbyId, player_name) {
     let response = await fetch(`https://www.deckofcardsapi.com/api/deck/${lobbyId}/pile/${player_name}/add/?cards=`)
-    console.log(response);
 
 }
 
