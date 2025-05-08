@@ -49,8 +49,6 @@ document.addEventListener("DOMContentLoaded", async () => {
     } catch (error) {
         console.log("Balance error:", error);
     }
-
-    // Logout
     logoutButton.addEventListener("click", async (e) => {
         e.preventDefault();
         try {
@@ -63,14 +61,10 @@ document.addEventListener("DOMContentLoaded", async () => {
             console.log("Logout error:", err);
         }
     });
-
-    // Host Lobby and join immediately
     hostButton.addEventListener("click", async (e) => {
         e.preventDefault();
-
         const username = await getUsernameFromToken();
         if (!username) return alert("User not authenticated");
-
         try {
             const res = await fetch(`/lobby/create?username=${username}`);
             if (res.redirected) {
@@ -78,10 +72,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const lobbyId = joinURL.searchParams.get("lobbyId");
                 const joinRes = await fetch(joinURL.href);
                 const {lobbyId: finalLobbyId} = await joinRes.json();
-
                 document.getElementById("lobby-id").textContent = finalLobbyId;
                 document.getElementById("lobby-room").classList.remove("hidden");
-
                 setInterval(async () => {
                     const res = await fetch(`/lobby/players?lobbyId=${finalLobbyId}`);
                     const data = await res.json();
@@ -108,20 +100,17 @@ document.addEventListener("DOMContentLoaded", async () => {
         const joinError = document.getElementById("join-error");
         joinError.classList.add("hidden"); // hide any previous error
         joinError.textContent = "";
-
         if (!lobbyId) {
             joinError.textContent = "Please enter a lobby ID.";
             joinError.classList.remove("hidden");
             return;
         }
-
         const username = await getUsernameFromToken();
         if (!username) {
             joinError.textContent = "User not authenticated.";
             joinError.classList.remove("hidden");
             return;
         }
-
         try {
             const joinRes = await fetch(`/lobby/join?lobbyId=${lobbyId}&username=${username}`);
             if (joinRes.ok) {
