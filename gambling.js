@@ -180,32 +180,25 @@ async function createLobby() {
 }
 app.post("/leave-lobby", (req, res) => {
     const { lobbyId, username } = req.body;
-
     if (!lobbyId || !username) {
         return res.status(400).json({ error: "Lobby ID und Username sind erforderlich!" });
     }
-
     if (!playerMap[lobbyId]) {
         return res.status(404).json({ error: "Lobby nicht gefunden!" });
     }
-
-    // Entferne den Nutzer aus der Lobby
     playerMap[lobbyId] = playerMap[lobbyId].filter(player => player !== username);
-
-    // Lösche die Lobby, wenn sie leer ist
     if (playerMap[lobbyId].length === 0) {
         delete playerMap[lobbyId];
         console.log(`Leere Lobby ${lobbyId} wurde gelöscht.`);
     }
-
     res.json({ message: `Lobby ${lobbyId} aktualisiert.` });
 });
-setInterval(() => removeEmptyLobbies(playerMap), 30000); // Alle 60 Sekunden
+setInterval(() => removeEmptyLobbies(playerMap), 10000);
 
 function removeEmptyLobbies(playerMap) {
     for (const lobby in playerMap) {
         if (playerMap[lobby].length === 0) {
-            delete playerMap[lobby]; // Entfernt die leere Lobby
+            delete playerMap[lobby];
             console.log(`Lobby ${lobby} wurde gelöscht.`);
         }
     }
@@ -227,7 +220,6 @@ async function deleteLobby(id) {
 
 async function joinLobby(lobbyId, player_name) {
     let response = await fetch(`https://www.deckofcardsapi.com/api/deck/${lobbyId}/pile/${player_name}/add/?cards=`)
-
 }
 
 app.get("/lobby/create", authenticateToken, async (req, res) => {
@@ -260,7 +252,6 @@ app.get("/lobby/join", authenticateToken, async (req, res) => {
     if (!user) {
         return res.status(401).json({ error: "User doesn't exist" });
     }
-
     if (lobbyId in playerMap) {
         await joinLobby(lobbyId, user.username);
         if (!playerMap[lobbyId].includes(username)) {
@@ -292,7 +283,6 @@ app.delete("/lobby/leave", authenticateToken, async (req, res) => {
             return res.status(404).json({ error: "User not in lobby" });
         }
     }
-
     res.status(404).json({ error: "Lobby not found" });
 });
 
