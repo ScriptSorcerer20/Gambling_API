@@ -190,7 +190,7 @@ async function leaveLobby(id, username) {
 async function deleteLobby(id) {
     if (id && playerMap[id]) {
         if (playerMap[id].length === 0) {
-            playerMap[id].splice(playerMap.indexOf(id), 1);
+            playerMap[id].splice(playerMap[id].indexOf(id), 1);
         }
     }
 }
