@@ -178,6 +178,38 @@ async function createLobby() {
     await fetch(`https://www.deckofcardsapi.com/api/deck/${lobbyId}/pile/players/add/?cards=`)
     return lobbyId;
 }
+app.post("/leave-lobby", (req, res) => {
+    const { lobbyId, username } = req.body;
+
+    if (!lobbyId || !username) {
+        return res.status(400).json({ error: "Lobby ID und Username sind erforderlich!" });
+    }
+
+    if (!playerMap[lobbyId]) {
+        return res.status(404).json({ error: "Lobby nicht gefunden!" });
+    }
+
+    // Entferne den Nutzer aus der Lobby
+    playerMap[lobbyId] = playerMap[lobbyId].filter(player => player !== username);
+
+    // Lösche die Lobby, wenn sie leer ist
+    if (playerMap[lobbyId].length === 0) {
+        delete playerMap[lobbyId];
+        console.log(`Leere Lobby ${lobbyId} wurde gelöscht.`);
+    }
+
+    res.json({ message: `Lobby ${lobbyId} aktualisiert.` });
+});
+setInterval(() => removeEmptyLobbies(playerMap), 60000); // Alle 60 Sekunden
+
+function removeEmptyLobbies(playerMap) {
+    for (const lobby in playerMap) {
+        if (playerMap[lobby].length === 0) {
+            delete playerMap[lobby]; // Entfernt die leere Lobby
+            console.log(`Lobby ${lobby} wurde gelöscht.`);
+        }
+    }
+}
 
 async function leaveLobby(id, username) {
     if (id && playerMap[id] && username) {
