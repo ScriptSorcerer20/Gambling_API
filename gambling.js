@@ -200,7 +200,7 @@ app.post("/leave-lobby", (req, res) => {
 
     res.json({ message: `Lobby ${lobbyId} aktualisiert.` });
 });
-setInterval(() => removeEmptyLobbies(playerMap), 60000); // Alle 60 Sekunden
+setInterval(() => removeEmptyLobbies(playerMap), 30000); // Alle 60 Sekunden
 
 function removeEmptyLobbies(playerMap) {
     for (const lobby in playerMap) {
