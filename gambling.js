@@ -164,11 +164,6 @@ app.delete("/logout", authenticateToken, async (request, response) => {
     response.json({message: "Logged out successfully."});
 });
 
-/*
-    Here will be the Game logic -----------------------------------------------------------------------------------------------
- */
-
-
 const playerMap = {};
 
 async function createLobby() {

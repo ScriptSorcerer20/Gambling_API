@@ -7,6 +7,20 @@ document.addEventListener("DOMContentLoaded", async () => {
     const joinCodeInput = document.getElementById("join-code");
     const joinSubmit = document.getElementById("submit-join");
     const leaveButton = document.getElementById("leave-button");
+    let playerUpdateInterval = null;
+
+    const startPlayerUpdates = (lobbyId) => {
+        if (playerUpdateInterval) {
+            clearInterval(playerUpdateInterval);
+        }
+
+        playerUpdateInterval = setInterval(async () => {
+            const res = await fetch(`/lobby/players?lobbyId=${lobbyId}`);
+            const data = await res.json();
+            const playerList = document.getElementById("player-list");
+            playerList.innerHTML = data.players.map(p => `<p>${p}</p>`).join("") || "<p>No players yet</p>";
+        }, 3000);
+    };
 
     leaveButton.addEventListener("click", async () => {
         const username = await getUsernameFromToken();
@@ -16,6 +30,11 @@ document.addEventListener("DOMContentLoaded", async () => {
                 method: "DELETE",
             });
             if (res.ok) {
+                // Stoppe das Interval beim Verlassen
+                if (playerUpdateInterval) {
+                    clearInterval(playerUpdateInterval);
+                    playerUpdateInterval = null;
+                }
                 document.getElementById("lobby-room").classList.add("hidden");
                 document.getElementById("player-list").innerHTML = "<p>Waiting for players...</p>";
                 document.getElementById("lobby-id").textContent = "N/A";
@@ -61,6 +80,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             console.log("Logout error:", err);
         }
     });
+    // Im hostButton Event Listener
     hostButton.addEventListener("click", async (e) => {
         e.preventDefault();
         const username = await getUsernameFromToken();
@@ -74,12 +94,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const {lobbyId: finalLobbyId} = await joinRes.json();
                 document.getElementById("lobby-id").textContent = finalLobbyId;
                 document.getElementById("lobby-room").classList.remove("hidden");
-                setInterval(async () => {
-                    const res = await fetch(`/lobby/players?lobbyId=${finalLobbyId}`);
-                    const data = await res.json();
-                    const playerList = document.getElementById("player-list");
-                    playerList.innerHTML = data.players.map(p => `<p>${p}</p>`).join("") || "<p>No players yet</p>";
-                }, 3000);
+                // ... bisheriger Code bis zum Interval ...
+                startPlayerUpdates(finalLobbyId);
             }
         } catch (err) {
             console.error("Lobby create/join error:", err);
@@ -94,6 +110,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             joinForm.classList.add("hidden");
         }
     });
+    // Im joinSubmit Event Listener
     joinSubmit.addEventListener("click", async (e) => {
         e.preventDefault();
         const lobbyId = joinCodeInput.value.trim();
@@ -119,13 +136,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                 document.getElementById("lobby-room").classList.remove("hidden");
                 joinForm.classList.add("hidden");
                 joinCodeInput.value = "";
-
-                setInterval(async () => {
-                    const res = await fetch(`/lobby/players?lobbyId=${finalLobbyId}`);
-                    const data = await res.json();
-                    const playerList = document.getElementById("player-list");
-                    playerList.innerHTML = data.players.map(p => `<p>${p}</p>`).join("") || "<p>No players yet</p>";
-                }, 3000);
+                // ... bisheriger Code bis zum Interval ...
+                startPlayerUpdates(finalLobbyId);
             } else {
                 const error = await joinRes.json();
                 joinError.textContent = "Join failed: " + (error.error || "Unknown error");
