@@ -6,6 +6,7 @@
     <link rel="stylesheet" href="styles_home.css">
 </head>
 <body>
+<canvas id="matrix-canvas"></canvas>
 <button class="logout" id="logout">Logout</button>
 <div class="balance">
     Balance: $<span id="balance">0</span>
@@ -15,7 +16,7 @@
     <button id="join">Join Lobby</button>
 </div>
 <div id="join-form" class="hidden">
-    <input type="text" id="join-code" placeholder="Enter Lobby ID" />
+    <input type="text" id="join-code" placeholder="Enter Lobby ID"/>
     <button id="submit-join">Join</button>
 </div>
 <div id="join-error" class="error-message hidden"></div>
@@ -28,4 +29,5 @@
 </div>
 </body>
 <script src="frontend_home.js" defer></script>
+<script src="matrix.js"></script>
 </html>
