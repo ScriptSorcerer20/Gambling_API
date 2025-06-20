@@ -149,4 +149,34 @@ document.addEventListener("DOMContentLoaded", async () => {
             joinError.classList.remove("hidden");
         }
     });
+
+    async function loadLeaderboard() {
+        try {
+            const res = await fetch("/leaderboard");
+            if (res.ok) {
+                const data = await res.json();
+                const list = document.getElementById("leaderboard-list");
+                const yourRank = document.getElementById("your-rank");
+
+                list.innerHTML = "";
+                data.leaderboard.forEach((player, i) => {
+                    const item = document.createElement("li");
+                    item.textContent = `${i + 1}. ${player.username} - $${player.money}`;
+                    if (player.username === data.self.username) {
+                        item.classList.add("you");
+                        item.textContent += " 👑";
+                    }
+                    list.appendChild(item);
+                });
+
+                yourRank.textContent = `You are ranked #${data.self.position} with $${data.self.money}`;
+            } else {
+                console.error("Failed to load leaderboard.");
+            }
+        } catch (err) {
+            console.error("Leaderboard error:", err);
+        }
+    }
+
+    await loadLeaderboard();
 });
