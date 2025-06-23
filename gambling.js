@@ -80,26 +80,21 @@ app.post("/register", (request, response) => {
     if (users.some(u => u.username === username)) {
         return response.status(400).json({error: "Username already exists"});
     }
-
     const token = generateAccessToken({username});
     saveUser({username, password, token, "money": 200});
-
     response.json({lower_username, token});
 });
 
 app.get("/leaderboard", authenticateToken, (req, res) => {
     const users = get_data();
     const sorted = users.sort((a, b) => b.money - a.money);
-
     const top10 = sorted.slice(0, 10).map(u => ({
         username: u.username,
         money: u.money,
     }));
-
     const username = req.user.username;
     const position = sorted.findIndex(u => u.username === username) + 1;
     const self = sorted.find(u => u.username === username);
-
     res.json({
         leaderboard: top10,
         self: {
@@ -305,13 +300,11 @@ app.delete("/lobby/leave", authenticateToken, async (req, res) => {
     res.status(404).json({error: "Lobby not found"});
 });
 
-
 app.get("/lobby/players", authenticateToken, async (req, res) => {
     let lobbyId = req.query.lobbyId;
     let players = playerMap[lobbyId] || [];
     res.json({players});
 });
-
 
 app.listen(port, () => {
     console.log("Server is running on port " + port);
