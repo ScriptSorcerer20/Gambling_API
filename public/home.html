@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <title>Home</title>
     <link rel="stylesheet" href="styles_home.css">
+    <link rel="icon" href="gambling.png" type="image/x-icon">
 </head>
 <body>
 <canvas id="matrix-canvas"></canvas>
@@ -30,8 +31,10 @@
 </div>
 <div id="join-error" class="error-message hidden"></div>
 <div id="lobby-room" class="lobby-room hidden">
+    <div class="lobby-header">
+        <button id="leave-button" class="leave-button">Leave Lobby</button>
+    </div>
     <h2>Lobby ID: <span id="lobby-id">N/A</span></h2>
-    <button id="leave-button">Leave Lobby</button>
     <div id="player-list">
         <p>Waiting for players...</p>
     </div>
