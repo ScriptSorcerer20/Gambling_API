@@ -48,18 +48,14 @@ function authenticateToken(request, response, next) {
     const token =
         request.headers.authorization?.split(" ")[1] ||
         request.cookies.authorization;
-
     if (token == null) return response.sendStatus(401);
-
     jwt.verify(token, process.env.TOKEN_SECRET, (err, user) => {
         if (err) return response.sendStatus(403);
-
         const users = get_data();
         const foundUser = users.find(u => u.username === user.username);
         if (!foundUser || foundUser.token !== token) {
             return response.status(403).json({error: "Token has been revoked or is invalid"});
         }
-
         request.user = user;
         next();
     });
@@ -72,10 +68,8 @@ function authenticateToken(request, response, next) {
 app.post("/register", (request, response) => {
     let {username, password} = request.body;
     let lower_username = username.toLowerCase();
-
     if (!username || !password)
         return response.status(400).json({error: "Username and password are required"});
-
     const users = get_data();
     if (users.some(u => u.username === username)) {
         return response.status(400).json({error: "Username already exists"});
@@ -260,7 +254,6 @@ app.get("/lobby/create", authenticateToken, async (req, res) => {
 app.get("/lobby/join", authenticateToken, async (req, res) => {
     let lobbyId = req.query.lobbyId;
     let username = req.query.username;
-
     const users = get_data();
     const user = users.find(u => u.username === username);
     if (!user) {
@@ -283,11 +276,9 @@ app.get("/lobby/join", authenticateToken, async (req, res) => {
 app.delete("/lobby/leave", authenticateToken, async (req, res) => {
     const lobbyId = req.query.lobbyId;
     const username = req.query.username;
-
     if (!lobbyId || !username) {
         return res.status(400).json({error: "Missing lobbyId or username"});
     }
-
     if (lobbyId in playerMap) {
         const index = playerMap[lobbyId].indexOf(username);
         if (index > -1) {
