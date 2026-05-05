@@ -4,7 +4,7 @@
   "description": "",
   "main": "swagger.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --check gambling.js && node --check public/frontend_home.js && node --check public/frontend_login.js && node --check public/frontend_poker.js && node --check swagger.js"
   },
   "repository": {
     "type": "git",

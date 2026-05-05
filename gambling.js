@@ -7,6 +7,7 @@ const swaggerDocument = require("./swagger.json");
 const path = require("path");
 app.use(express.static(path.join(__dirname, "public")));
 const fs = require("fs/promises");
+const crypto = require("crypto");
 const dotenv = require("dotenv").config();
 const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
@@ -17,6 +18,12 @@ const port = process.env.PORT || 25566;
 const server = http.createServer(app);
 const wss = new WebSocketServer({server});
 let db;
+const authCookieOptions = {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "Strict",
+    path: "/"
+};
 
 app.use(express.json());
 app.use("/swagger-ui", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
@@ -119,6 +126,18 @@ function generateAccessToken(user) {
     return jwt.sign(user, process.env.TOKEN_SECRET, {expiresIn: "1800s"});
 }
 
+function setAuthCookie(response, token) {
+    response.cookie("authorization", token, authCookieOptions);
+}
+
+function normalizeUsername(username) {
+    return typeof username === "string" ? username.trim().toLowerCase() : "";
+}
+
+function isValidPassword(password) {
+    return typeof password === "string" && password.length > 0;
+}
+
 function parseCookieHeader(cookieHeader = "") {
     return cookieHeader.split(";").reduce((cookies, cookie) => {
         const separatorIndex = cookie.indexOf("=");
@@ -166,15 +185,16 @@ async function authenticateToken(request, response, next) {
 
 app.post("/register", async (request, response) => {
     let {username, password} = request.body;
-    if (!username || !password)
+    username = normalizeUsername(username);
+    if (!username || !isValidPassword(password))
         return response.status(400).json({error: "Username and password are required"});
-    username = username.toLowerCase();
     const existingUser = await findUserByUsername(username);
     if (existingUser) {
         return response.status(400).json({error: "Username already exists"});
     }
     const token = generateAccessToken({username});
     await saveUser({username, password, token, money: 200});
+    setAuthCookie(response, token);
     response.json({username, token});
 });
 
@@ -204,9 +224,9 @@ app.get("/login", (request, response) => {
 
 app.post("/login", async (request, response) => {
     let {username, password} = request.body;
-    if (!username || !password)
+    username = normalizeUsername(username);
+    if (!username || !isValidPassword(password))
         return response.status(400).json({error: "Username and password are required"});
-    username = username.toLowerCase();
     const user = await findUserByUsername(username);
     if (!user) return response.status(401).json({error: "Invalid credentials"});
     const passwordMatches = await bcrypt.compare(password, user.passwordHash);
@@ -215,6 +235,7 @@ app.post("/login", async (request, response) => {
     }
     const token = generateAccessToken({username});
     await setUserToken(username, token);
+    setAuthCookie(response, token);
     response.json({username, token});
 });
 
@@ -242,7 +263,7 @@ app.get("/balance", authenticateToken, async (request, response) => {
     if (!me) {
         return response.status(404).json({error: "User not found"});
     }
-    response.json({balance: me.money}).status(200);
+    response.status(200).json({balance: me.money});
 });
 
 app.post("/verify", authenticateToken, (request, response) => {
@@ -256,11 +277,7 @@ app.delete("/logout", authenticateToken, async (request, response) => {
     const lobbyId = user.lobbyId;
     await leavePokerLobby(lobbyId, username);
     await setUserToken(username, null);
-    response.clearCookie("authorization", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "Strict"
-    });
+    response.clearCookie("authorization", authCookieOptions);
     response.json({message: "Logged out successfully."});
 });
 
@@ -782,6 +799,10 @@ async function startShowdown(game) {
         result: evaluateBestHand([...game.hands[player], ...game.communityCards])
     }));
     const rankedResults = [...evaluations].sort((a, b) => compareScores(b.result.score, a.result.score));
+    const bestScore = rankedResults[0]?.result.score;
+    const winners = bestScore
+        ? rankedResults.filter(entry => compareScores(entry.result.score, bestScore) === 0)
+        : [];
     const bettorIndex = game.lastBettor ? game.players.indexOf(game.lastBettor) : 0;
     const startIndex = bettorIndex >= 0 ? bettorIndex : 0;
     const revealOrder = [...evaluations].sort((a, b) => {
@@ -794,13 +815,19 @@ async function startShowdown(game) {
     game.phase = "showdown";
     game.currentPlayerIndex = -1;
     game.showdown = revealOrder;
-    game.winner = rankedResults[0]?.player || null;
-    if (game.winner && !game.potAwarded) {
-        game.stacks[game.winner] += game.pot;
+    game.winner = winners.length ? winners.map(entry => entry.player).join(", ") : null;
+    if (winners.length && !game.potAwarded) {
+        const baseShare = Math.floor(game.pot / winners.length);
+        let remainder = game.pot % winners.length;
+        for (const entry of winners) {
+            const extraChip = remainder > 0 ? 1 : 0;
+            game.stacks[entry.player] += baseShare + extraChip;
+            remainder -= extraChip;
+        }
         game.potAwarded = true;
     }
     game.lastAction = game.winner
-        ? `Showdown: ${game.winner} wins $${game.pot} with ${rankedResults[0].result.name}`
+        ? `Showdown: ${game.winner} ${winners.length === 1 ? "wins" : "split"} $${game.pot} with ${rankedResults[0].result.name}`
         : "Showdown ended";
     await persistPokerStacks(game);
     await scheduleNextRound(game);
@@ -1103,36 +1130,35 @@ function broadcastToLobby(lobbyId, payload) {
 }
 
 async function createLobby() {
-    let response = await fetch("https://www.deckofcardsapi.com/api/deck/new/shuffle/?deck_count=1")
-    let data = await response.json();
-    let lobbyId = data.deck_id
-    await fetch(`https://www.deckofcardsapi.com/api/deck/${lobbyId}/pile/players/add/?cards=`)
+    let lobbyId;
+    do {
+        lobbyId = crypto.randomBytes(4).toString("hex");
+    } while (playerMap[lobbyId]);
     return lobbyId;
 }
 
-app.post("/leave-lobby", (req, res) => {
-    const {lobbyId, username} = req.body;
+app.post("/leave-lobby", authenticateToken, async (req, res) => {
+    const {lobbyId} = req.body;
+    const username = req.user.username;
     if (!lobbyId || !username) {
         return res.status(400).json({error: "Lobby ID und Username sind erforderlich!"});
     }
     if (!playerMap[lobbyId]) {
         return res.status(404).json({error: "Lobby nicht gefunden!"});
     }
-    playerMap[lobbyId] = playerMap[lobbyId].filter(player => player !== username);
-    if (playerMap[lobbyId].length === 0) {
-        delete playerMap[lobbyId];
-        delete lobbyPrivacy[lobbyId];
-        console.log(`Leere Lobby ${lobbyId} wurde gelöscht.`);
+    if (await leavePokerLobby(lobbyId, username)) {
+        return res.json({message: `Lobby ${lobbyId} aktualisiert.`});
     }
-    res.json({message: `Lobby ${lobbyId} aktualisiert.`});
+    return res.status(404).json({error: "User not in lobby"});
 });
 setInterval(() => removeEmptyLobbies(playerMap), 10000);
 
 function removeEmptyLobbies(playerMap) {
     for (const lobby in playerMap) {
         if (playerMap[lobby].length === 0) {
-            delete playerMap[lobby];
-            delete lobbyPrivacy[lobby];
+            deleteLobby(lobby).catch(error => {
+                console.error("Failed to delete empty lobby:", error);
+            });
             console.log(`Lobby ${lobby} wurde gelöscht.`);
         }
     }
@@ -1167,8 +1193,12 @@ async function deleteLobby(id) {
     }
 }
 
-async function joinLobby(lobbyId, player_name) {
-    let response = await fetch(`https://www.deckofcardsapi.com/api/deck/${lobbyId}/pile/${player_name}/add/?cards=`)
+async function joinLobby(lobbyId, playerName) {
+    if (!lobbyId || !playerName || !playerMap[lobbyId]) return false;
+    if (!playerMap[lobbyId].includes(playerName)) {
+        playerMap[lobbyId].push(playerName);
+    }
+    return true;
 }
 
 app.get("/lobby/create", authenticateToken, async (req, res) => {
@@ -1199,9 +1229,6 @@ app.get("/lobby/join", authenticateToken, async (req, res) => {
     }
     if (lobbyId in playerMap) {
         await joinLobby(lobbyId, user.username);
-        if (!playerMap[lobbyId].includes(username)) {
-            playerMap[lobbyId].push(username);
-        }
         await ensurePlayerInPokerGame(lobbyId, username);
         await maybeStartWaitingGame(lobbyId);
         broadcastLobby(lobbyId);
@@ -1295,9 +1322,6 @@ wss.on("connection", async (socket, request) => {
                 }
 
                 await joinLobby(lobbyId, user.username);
-                if (!playerMap[lobbyId].includes(user.username)) {
-                    playerMap[lobbyId].push(user.username);
-                }
                 await ensurePlayerInPokerGame(lobbyId, user.username);
                 await maybeStartWaitingGame(lobbyId);
 

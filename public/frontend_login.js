@@ -14,8 +14,7 @@
             });
 
             if (loginRes.ok) {
-                const loginData = await loginRes.json();
-                document.cookie = `authorization=${loginData.token}`;
+                await loginRes.json();
                 showLoadingScreen("Login successful. Loading Lobby...");
                 return;
             }
@@ -27,8 +26,7 @@
             });
 
             if (registerRes.ok) {
-                const registerData = await registerRes.json();
-                document.cookie = `authorization=${registerData.token}`;
+                await registerRes.json();
                 showLoadingScreen("Register successful. Loading Lobby...");
             } else {
                 const error = await registerRes.json();

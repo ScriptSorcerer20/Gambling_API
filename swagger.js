@@ -5,7 +5,7 @@ const doc = {
         title: 'GAMBLE!',
         description: 'Gambling API'
     },
-    host: 'localhost:25565',
+    host: 'localhost:25566',
     components: {
         securitySchemes:{
             bearerAuth: {
