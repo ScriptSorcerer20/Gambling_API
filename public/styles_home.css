@@ -58,6 +58,37 @@ button.logout {
     margin-top: 30px;
 }
 
+.host-form {
+    display: grid;
+    gap: 12px;
+    justify-items: center;
+    margin-top: 18px;
+}
+
+.lobby-visibility {
+    color: #fff;
+    font-family: monospace;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    text-shadow: 0 0 3px #0f0;
+}
+
+.lobby-visibility label {
+    border: 1px solid rgba(0, 255, 0, 0.5);
+    border-radius: 8px;
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.65);
+    cursor: pointer;
+}
+
+.lobby-visibility input {
+    width: 16px;
+    height: 16px;
+    accent-color: #0f0;
+    vertical-align: middle;
+}
+
 .lobby-room {
     background: rgba(0, 0, 0, 0.7);
     border: 2px solid #0f0;
@@ -84,14 +115,24 @@ button.logout {
     display: none;
 }
 
-#join-form {
+.join-browser {
     margin-top: 20px;
+    width: min(520px, calc(100vw - 32px));
+    background: rgba(0, 0, 0, 0.78);
+    border: 2px solid #0f0;
+    border-radius: 10px;
+    box-shadow: 0 0 10px #0f0;
+    padding: 18px;
+    box-sizing: border-box;
+}
+
+.join-code-row {
+    display: flex;
     gap: 10px;
-    display: none; /* default hidden */
 }
 
 #join-form:not(.hidden) {
-    display: flex;
+    display: block;
 }
 
 #join-form input {
@@ -103,6 +144,73 @@ button.logout {
     font-size: 16px;
     box-shadow: 0 0 5px #0f0 inset;
     width: 200px;
+}
+
+.browser-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 16px;
+    border-top: 1px solid rgba(0, 255, 0, 0.35);
+    padding-top: 14px;
+}
+
+.browser-header h2 {
+    margin: 0;
+    font-size: 18px;
+    color: #0f0;
+    font-family: monospace;
+}
+
+.browser-header button,
+.public-lobby button {
+    padding: 8px 14px;
+    font-size: 13px;
+    border-radius: 8px;
+}
+
+.public-lobbies {
+    display: grid;
+    gap: 10px;
+    margin-top: 12px;
+    max-height: 220px;
+    overflow: auto;
+}
+
+.public-lobbies p {
+    margin: 0;
+    color: #fff;
+    font-family: monospace;
+}
+
+.public-lobby {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    gap: 12px;
+    border: 1px solid rgba(0, 255, 0, 0.45);
+    border-radius: 8px;
+    padding: 10px;
+    background: rgba(0, 255, 0, 0.06);
+}
+
+.public-lobby-info {
+    display: grid;
+    gap: 4px;
+    color: #fff;
+    font-family: monospace;
+    min-width: 0;
+}
+
+.public-lobby-info strong {
+    color: #0f0;
+    overflow-wrap: anywhere;
+}
+
+.public-lobby-info span {
+    font-size: 13px;
+    color: #d8ffd8;
 }
 
 #join-form button {
@@ -219,4 +327,17 @@ button.logout {
 .leave-button:hover {
     background-color: #c00;
     transform: scale(1.05);
+}
+
+.start-game {
+    margin-top: 20px;
+    width: 100%;
+}
+
+.start-game:disabled {
+    background-color: #163016;
+    color: #67a667;
+    cursor: not-allowed;
+    box-shadow: 0 0 5px #0f0 inset;
+    transform: none;
 }

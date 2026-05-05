@@ -3,50 +3,204 @@ document.addEventListener("DOMContentLoaded", async () => {
     const balance = document.getElementById("balance");
     const hostButton = document.getElementById("host");
     const joinButton = document.getElementById("join");
+    const hostForm = document.getElementById("host-form");
+    const createLobbyButton = document.getElementById("create-lobby");
+    const lobbyVisibilityInputs = document.querySelectorAll("input[name='lobby-visibility']");
     const joinForm = document.getElementById("join-form");
     const joinCodeInput = document.getElementById("join-code");
     const joinSubmit = document.getElementById("submit-join");
+    const refreshLobbies = document.getElementById("refresh-lobbies");
+    const publicLobbies = document.getElementById("public-lobbies");
     const leaveButton = document.getElementById("leave-button");
-    let playerUpdateInterval = null;
+    const joinError = document.getElementById("join-error");
+    const lobbyRoom = document.getElementById("lobby-room");
+    const lobbyIdDisplay = document.getElementById("lobby-id");
+    const playerList = document.getElementById("player-list");
+    const startGameButton = document.getElementById("start-game");
+    let socket = null;
+    let socketReady = null;
+    let currentUsername = null;
+    let currentLobbyId = null;
 
-    const startPlayerUpdates = (lobbyId) => {
-        if (playerUpdateInterval) {
-            clearInterval(playerUpdateInterval);
-        }
-
-        playerUpdateInterval = setInterval(async () => {
-            const res = await fetch(`/lobby/players?lobbyId=${lobbyId}`);
-            const data = await res.json();
-            const playerList = document.getElementById("player-list");
-            playerList.innerHTML = data.players.map(p => `<p>${p}</p>`).join("") || "<p>No players yet</p>";
-        }, 3000);
+    const showJoinError = (message) => {
+        joinError.textContent = message;
+        joinError.classList.remove("hidden");
     };
 
-    leaveButton.addEventListener("click", async () => {
-        const username = await getUsernameFromToken();
-        const lobbyId = document.getElementById("lobby-id").textContent;
-        try {
-            const res = await fetch(`/lobby/leave?lobbyId=${lobbyId}&username=${username}`, {
-                method: "DELETE",
-            });
-            if (res.ok) {
-                // Stoppe das Interval beim Verlassen
-                if (playerUpdateInterval) {
-                    clearInterval(playerUpdateInterval);
-                    playerUpdateInterval = null;
-                }
-                document.getElementById("lobby-room").classList.add("hidden");
-                document.getElementById("player-list").innerHTML = "<p>Waiting for players...</p>";
-                document.getElementById("lobby-id").textContent = "N/A";
-            } else {
-                const err = await res.json();
-                alert("Failed to leave lobby: " + (err.error || "Unknown error"));
-            }
-        } catch (err) {
-            console.error("Error leaving lobby:", err);
-            alert("Could not leave lobby.");
+    const clearJoinError = () => {
+        joinError.textContent = "";
+        joinError.classList.add("hidden");
+    };
+
+    const renderPlayers = (players) => {
+        playerList.innerHTML = "";
+
+        if (!players.length) {
+            playerList.innerHTML = "<p>No players yet</p>";
+            return;
         }
-    });
+
+        for (const player of players) {
+            const entry = document.createElement("p");
+            entry.textContent = player;
+            playerList.appendChild(entry);
+        }
+    };
+
+    const updateStartButton = (host, canStart) => {
+        const isHost = currentUsername && host === currentUsername;
+        startGameButton.classList.toggle("hidden", !isHost);
+        startGameButton.disabled = !isHost || !canStart;
+        startGameButton.textContent = canStart ? "Start Game" : "Waiting for 2 players";
+    };
+
+    const showLobby = (lobbyId, players = [], host = null, canStart = false) => {
+        currentLobbyId = lobbyId;
+        lobbyIdDisplay.textContent = lobbyId;
+        lobbyRoom.classList.remove("hidden");
+        joinForm.classList.add("hidden");
+        hostForm.classList.add("hidden");
+        renderPlayers(players);
+        updateStartButton(host, canStart);
+    };
+
+    const joinLobby = (lobbyId) => {
+        if (!currentUsername) {
+            showJoinError("User not authenticated.");
+            return Promise.reject(new Error("User not authenticated"));
+        }
+        return sendSocketMessage({type: "lobby:join", lobbyId});
+    };
+
+    const renderPublicLobbies = (lobbies = []) => {
+        publicLobbies.innerHTML = "";
+
+        if (!lobbies.length) {
+            publicLobbies.innerHTML = "<p>No public lobbies found</p>";
+            return;
+        }
+
+        lobbies.forEach((lobby) => {
+            const row = document.createElement("div");
+            row.className = "public-lobby";
+
+            const info = document.createElement("div");
+            info.className = "public-lobby-info";
+
+            const title = document.createElement("strong");
+            title.textContent = lobby.host ? `${lobby.host}'s lobby` : "Public lobby";
+            info.appendChild(title);
+
+            const meta = document.createElement("span");
+            meta.textContent = `${lobby.players} player${lobby.players === 1 ? "" : "s"} - ${lobby.gameStarted ? "Game running" : "Waiting"}`;
+            info.appendChild(meta);
+
+            const join = document.createElement("button");
+            join.type = "button";
+            join.textContent = "Join";
+            join.addEventListener("click", () => {
+                clearJoinError();
+                joinLobby(lobby.lobbyId).catch(() => showJoinError("Could not join lobby."));
+            });
+
+            row.appendChild(info);
+            row.appendChild(join);
+            publicLobbies.appendChild(row);
+        });
+    };
+
+    const loadPublicLobbies = async () => {
+        try {
+            publicLobbies.innerHTML = "<p>Loading lobbies...</p>";
+            const res = await fetch("/lobby/public");
+            if (!res.ok) {
+                throw new Error("Failed to load lobbies");
+            }
+            const data = await res.json();
+            renderPublicLobbies(data.lobbies || []);
+        } catch (error) {
+            publicLobbies.innerHTML = "<p>Could not load lobbies</p>";
+        }
+    };
+
+    const hideLobby = () => {
+        currentLobbyId = null;
+        lobbyRoom.classList.add("hidden");
+        lobbyIdDisplay.textContent = "N/A";
+        playerList.innerHTML = "<p>Waiting for players...</p>";
+        startGameButton.classList.add("hidden");
+        startGameButton.disabled = true;
+    };
+
+    const sendSocketMessage = async (message) => {
+        const ws = await connectSocket();
+        ws.send(JSON.stringify(message));
+    };
+
+    const connectSocket = () => {
+        if (socket && socket.readyState === WebSocket.OPEN) {
+            return Promise.resolve(socket);
+        }
+
+        if (socketReady) {
+            return socketReady;
+        }
+
+        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        socket = new WebSocket(`${protocol}//${window.location.host}`);
+
+        socketReady = new Promise((resolve, reject) => {
+            socket.addEventListener("open", () => resolve(socket), {once: true});
+            socket.addEventListener("error", () => reject(new Error("WebSocket connection failed")), {once: true});
+        });
+
+        socket.addEventListener("message", (event) => {
+            const message = JSON.parse(event.data);
+
+            if (message.type === "auth:error") {
+                showJoinError(message.message);
+                return;
+            }
+
+            if (message.type === "auth:success") {
+                currentUsername = message.username;
+                return;
+            }
+
+            if (message.type === "lobby:state") {
+                clearJoinError();
+                if (message.gameStarted) {
+                    localStorage.setItem("activeLobbyId", message.lobbyId);
+                    window.location.href = message.gameUrl || `/poker.html?lobbyId=${encodeURIComponent(message.lobbyId)}`;
+                    return;
+                }
+                showLobby(message.lobbyId, message.players || [], message.host, Boolean(message.canStart));
+                return;
+            }
+
+            if (message.type === "poker:started") {
+                localStorage.setItem("activeLobbyId", message.lobbyId);
+                window.location.href = message.url || `/poker.html?lobbyId=${encodeURIComponent(message.lobbyId)}`;
+                return;
+            }
+
+            if (message.type === "lobby:left") {
+                hideLobby();
+                return;
+            }
+
+            if (message.type === "lobby:error" || message.type === "error" || message.type === "poker:error") {
+                showJoinError(message.message || "WebSocket request failed");
+            }
+        });
+
+        socket.addEventListener("close", () => {
+            socket = null;
+            socketReady = null;
+        });
+
+        return socketReady;
+    };
 
     const getUsernameFromToken = async () => {
         try {
@@ -54,24 +208,35 @@ document.addEventListener("DOMContentLoaded", async () => {
             const data = await res.json();
             return data.user?.username;
         } catch (err) {
-            console.error("Failed to get username from token");
+            console.error("Failed to get username from token", err);
             return null;
         }
     };
 
     try {
-        const balanceRes = await fetch('/balance', {method: "GET"});
+        await connectSocket();
+        currentUsername = await getUsernameFromToken();
+    } catch (error) {
+        showJoinError("Real-time poker connection failed.");
+    }
+
+    try {
+        const balanceRes = await fetch("/balance", {method: "GET"});
         if (balanceRes.ok) {
             const balanceData = await balanceRes.json();
-            balance.innerHTML = balanceData.balance;
+            balance.textContent = balanceData.balance;
         }
     } catch (error) {
         console.log("Balance error:", error);
     }
+
     logoutButton.addEventListener("click", async (e) => {
         e.preventDefault();
         try {
-            const logoutRes = await fetch('/logout', {method: "DELETE"});
+            if (socket && socket.readyState === WebSocket.OPEN) {
+                socket.close();
+            }
+            const logoutRes = await fetch("/logout", {method: "DELETE"});
             if (logoutRes.ok) {
                 document.cookie = "authorization=; Max-Age=0; path=/;";
                 window.location.href = "/login.html";
@@ -80,74 +245,80 @@ document.addEventListener("DOMContentLoaded", async () => {
             console.log("Logout error:", err);
         }
     });
-    // Im hostButton Event Listener
+
     hostButton.addEventListener("click", async (e) => {
         e.preventDefault();
-        const username = await getUsernameFromToken();
-        if (!username) return alert("User not authenticated");
-        try {
-            const res = await fetch(`/lobby/create?username=${username}`);
-            if (res.redirected) {
-                const joinURL = new URL(res.url);
-                const lobbyId = joinURL.searchParams.get("lobbyId");
-                const joinRes = await fetch(joinURL.href);
-                const {lobbyId: finalLobbyId} = await joinRes.json();
-                document.getElementById("lobby-id").textContent = finalLobbyId;
-                document.getElementById("lobby-room").classList.remove("hidden");
-                // ... bisheriger Code bis zum Interval ...
-                startPlayerUpdates(finalLobbyId);
-            }
-        } catch (err) {
-            console.error("Lobby create/join error:", err);
-        }
+        clearJoinError();
+        hostForm.classList.toggle("hidden");
+        joinForm.classList.add("hidden");
     });
+
+    createLobbyButton.addEventListener("click", async (e) => {
+        e.preventDefault();
+        clearJoinError();
+        if (!currentUsername) {
+            showJoinError("User not authenticated.");
+            return;
+        }
+        const selectedVisibility = [...lobbyVisibilityInputs].find(input => input.checked)?.value || "public";
+        sendSocketMessage({type: "lobby:create", private: selectedVisibility === "private"}).catch(() => {
+            showJoinError("Could not create lobby.");
+        });
+    });
+
     joinButton.addEventListener("click", (e) => {
         e.preventDefault();
-        if (joinForm.classList.contains("hidden")) {
-            joinForm.classList.remove("hidden");
+        joinForm.classList.toggle("hidden");
+        hostForm.classList.add("hidden");
+        if (!joinForm.classList.contains("hidden")) {
             joinCodeInput.focus();
-        } else {
-            joinForm.classList.add("hidden");
+            loadPublicLobbies();
         }
     });
-    // Im joinSubmit Event Listener
+
+    refreshLobbies.addEventListener("click", (e) => {
+        e.preventDefault();
+        loadPublicLobbies();
+    });
+
     joinSubmit.addEventListener("click", async (e) => {
         e.preventDefault();
+        clearJoinError();
+
         const lobbyId = joinCodeInput.value.trim();
-        const joinError = document.getElementById("join-error");
-        joinError.classList.add("hidden"); // hide any previous error
-        joinError.textContent = "";
         if (!lobbyId) {
-            joinError.textContent = "Please enter a lobby ID.";
-            joinError.classList.remove("hidden");
+            showJoinError("Please enter a lobby ID.");
             return;
         }
-        const username = await getUsernameFromToken();
-        if (!username) {
-            joinError.textContent = "User not authenticated.";
-            joinError.classList.remove("hidden");
+
+        if (!currentUsername) {
+            showJoinError("User not authenticated.");
             return;
         }
-        try {
-            const joinRes = await fetch(`/lobby/join?lobbyId=${lobbyId}&username=${username}`);
-            if (joinRes.ok) {
-                const {lobbyId: finalLobbyId} = await joinRes.json();
-                document.getElementById("lobby-id").textContent = finalLobbyId;
-                document.getElementById("lobby-room").classList.remove("hidden");
-                joinForm.classList.add("hidden");
-                joinCodeInput.value = "";
-                // ... bisheriger Code bis zum Interval ...
-                startPlayerUpdates(finalLobbyId);
-            } else {
-                const error = await joinRes.json();
-                joinError.textContent = "Join failed: " + (error.error || "Unknown error");
-                joinError.classList.remove("hidden");
-            }
-        } catch (err) {
-            console.error("Join lobby error:", err);
-            joinError.textContent = "Could not join lobby. Please try again.";
-            joinError.classList.remove("hidden");
-        }
+
+        joinLobby(lobbyId).then(() => {
+            joinForm.classList.add("hidden");
+            joinCodeInput.value = "";
+        }).catch(() => {
+            showJoinError("Could not join lobby. Please try again.");
+        });
+    });
+
+    leaveButton.addEventListener("click", (e) => {
+        e.preventDefault();
+        const lobbyId = lobbyIdDisplay.textContent;
+        if (!lobbyId || lobbyId === "N/A") return;
+        sendSocketMessage({type: "lobby:leave", lobbyId}).catch(() => {
+            showJoinError("Could not leave lobby.");
+        });
+    });
+
+    startGameButton.addEventListener("click", (e) => {
+        e.preventDefault();
+        if (!currentLobbyId || startGameButton.disabled) return;
+        sendSocketMessage({type: "poker:start", lobbyId: currentLobbyId}).catch(() => {
+            showJoinError("Could not start game.");
+        });
     });
 
     async function loadLeaderboard() {
@@ -164,7 +335,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                     item.textContent = `${i + 1}. ${player.username} - $${player.money}`;
                     if (player.username === data.self.username) {
                         item.classList.add("you");
-                        item.textContent += " 👑";
+                        item.textContent += " (you)";
                     }
                     list.appendChild(item);
                 });

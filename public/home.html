@@ -25,9 +25,31 @@
     <button id="host">Host Lobby</button>
     <button id="join">Join Lobby</button>
 </div>
-<div id="join-form" class="hidden">
-    <input type="text" id="join-code" placeholder="Enter Lobby ID"/>
-    <button id="submit-join">Join</button>
+<div id="host-form" class="host-form hidden">
+    <div class="lobby-visibility" aria-label="Lobby visibility">
+        <label>
+            <input type="radio" name="lobby-visibility" value="public" checked/>
+            Public Lobby
+        </label>
+        <label>
+            <input type="radio" name="lobby-visibility" value="private"/>
+            Private Lobby
+        </label>
+    </div>
+    <button id="create-lobby" type="button">Create Lobby</button>
+</div>
+<div id="join-form" class="join-browser hidden">
+    <div class="join-code-row">
+        <input type="text" id="join-code" placeholder="Enter Lobby ID"/>
+        <button id="submit-join">Join</button>
+    </div>
+    <div class="browser-header">
+        <h2>Public Lobbies</h2>
+        <button id="refresh-lobbies" type="button">Refresh</button>
+    </div>
+    <div id="public-lobbies" class="public-lobbies">
+        <p>No public lobbies found</p>
+    </div>
 </div>
 <div id="join-error" class="error-message hidden"></div>
 <div id="lobby-room" class="lobby-room hidden">
@@ -38,6 +60,7 @@
     <div id="player-list">
         <p>Waiting for players...</p>
     </div>
+    <button id="start-game" class="start-game hidden" disabled>Start Game</button>
 </div>
 </body>
 <script src="frontend_home.js" defer></script>

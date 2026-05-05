@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Poker Table</title>
+    <link rel="stylesheet" href="styles_poker.css">
+    <link rel="icon" href="gambling.png" type="image/x-icon">
+</head>
+<body>
+<canvas id="matrix-canvas"></canvas>
+
+<main class="poker-table">
+    <header class="table-header">
+        <div class="round-panel">
+            <span>Round <strong id="round">1</strong></span>
+            <span class="divider">|</span>
+            <span id="street">Preflop</span>
+            <span class="divider">|</span>
+            <span>Pot: $<strong id="pot">0</strong></span>
+        </div>
+        <button id="leave-table" class="leave-table">Leave Table</button>
+    </header>
+
+    <section class="community-area" aria-label="Community cards">
+        <div class="turn-panel">
+            <span>Turn: <strong id="current-turn">Waiting...</strong></span>
+            <span id="turn-state">Waiting for table state</span>
+        </div>
+        <ol id="turn-queue" class="turn-queue"></ol>
+        <div id="community-cards" class="card-row">
+            <div class="card placeholder">?</div>
+            <div class="card placeholder">?</div>
+            <div class="card placeholder">?</div>
+        </div>
+    </section>
+
+    <section class="actions" aria-label="Poker actions">
+        <button data-action="hit">Hit</button>
+        <button data-action="fold">Fold</button>
+        <button data-action="bet">Bet</button>
+    </section>
+
+    <section class="player-area" aria-label="Your cards">
+        <div id="player-cards" class="hand">
+            <div class="card player-card placeholder">Card 1</div>
+            <div class="card player-card placeholder">Card 2</div>
+        </div>
+        <div id="spectator-note" class="spectator-note hidden">Spectating</div>
+        <div class="player-status">
+            <span id="player-name">Player</span>
+            <span>Your Bet: $<strong id="current-bet">0</strong></span>
+            <span>Your Total: $<strong id="your-contribution">0</strong></span>
+            <span>Your Stack: $<strong id="your-stack">400</strong></span>
+            <span id="last-action">Game starting</span>
+        </div>
+    </section>
+
+    <section id="showdown-panel" class="showdown-panel hidden" aria-label="Showdown"></section>
+    <div id="error-message" class="error-message hidden"></div>
+</main>
+
+<div id="bet-modal" class="bet-modal hidden" role="dialog" aria-modal="true" aria-labelledby="bet-title">
+    <div class="bet-panel">
+        <button id="close-bet" class="close-bet" aria-label="Close bet dialog">x</button>
+        <h2 id="bet-title">Choose amount to bet</h2>
+        <input id="bet-range" type="range" min="0" max="400" step="10" value="50">
+        <div class="range-labels">
+            <span>$0</span>
+            <span>$400</span>
+        </div>
+        <div class="bet-amount">
+            <button id="decrease-bet">-</button>
+            <span>$<strong id="bet-value">50</strong></span>
+            <button id="increase-bet">+</button>
+        </div>
+        <button id="confirm-bet" class="confirm-bet">Confirm</button>
+    </div>
+</div>
+
+<script src="frontend_poker.js" defer></script>
+<script src="matrix.js"></script>
+</body>
+</html>

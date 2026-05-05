@@ -1,27 +1,49 @@
-﻿const canvas = document.getElementById("matrix-canvas");
+const canvas = document.getElementById("matrix-canvas");
 const ctx = canvas.getContext("2d");
-canvas.width = window.innerWidth;
-canvas.height = window.innerHeight;
 const letters = "アァイィウヴエェオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲンABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789".split("");
 const fontSize = 16;
-const columns = Math.floor(canvas.width / fontSize);
-const drops = new Array(columns).fill(1);
+const frameInterval = 65;
+let drops = [];
+let lastFrameTime = 0;
+
+function resizeCanvas() {
+    const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+    canvas.width = Math.floor(width * pixelRatio);
+    canvas.height = Math.floor(height * pixelRatio);
+    canvas.style.width = `${width}px`;
+    canvas.style.height = `${height}px`;
+    ctx.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+
+    const columns = Math.ceil(width / fontSize);
+    drops = new Array(columns).fill(1);
+}
+
 function drawMatrix() {
     ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
     ctx.fillStyle = "#39FF14";
     ctx.font = fontSize + "px monospace";
+
     for (let i = 0; i < drops.length; i++) {
         const text = letters[Math.floor(Math.random() * letters.length)];
         ctx.fillText(text, i * fontSize, drops[i] * fontSize);
-        if (drops[i] * fontSize > canvas.height || Math.random() > 0.975) {
+        if (drops[i] * fontSize > window.innerHeight || Math.random() > 0.975) {
             drops[i] = 0;
         }
         drops[i]++;
     }
 }
-setInterval(drawMatrix, 50);
-window.addEventListener("resize", () => {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-});
+
+function animate(timestamp) {
+    if (timestamp - lastFrameTime >= frameInterval) {
+        drawMatrix();
+        lastFrameTime = timestamp;
+    }
+    requestAnimationFrame(animate);
+}
+
+resizeCanvas();
+requestAnimationFrame(animate);
+window.addEventListener("resize", resizeCanvas);
