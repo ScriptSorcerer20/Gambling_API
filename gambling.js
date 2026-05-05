@@ -14,7 +14,7 @@ const cookieParser = require("cookie-parser");
 const bcrypt = require("bcrypt");
 const sqlite3 = require("sqlite3");
 const {open} = require("sqlite");
-const port = process.env.PORT || 69420;
+const port = process.env.PORT || 42069;
 const server = http.createServer(app);
 const wss = new WebSocketServer({server});
 let db;
