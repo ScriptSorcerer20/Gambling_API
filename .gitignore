@@ -1,0 +1,5 @@
+node_modules/
+users.sqlite
+users.sqlite-shm
+users.sqlite-wal
+.env
