@@ -20,11 +20,11 @@ const wss = new WebSocketServer({server});
 let db;
 const authCookieOptions = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
     sameSite: "Strict",
     path: "/"
 };
 
+app.set("trust proxy", 1);
 app.use(express.json());
 app.use("/swagger-ui", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.use(cookieParser());
@@ -62,8 +62,23 @@ function getAuthRequestDetails(request) {
         method: request.method,
         path: request.originalUrl || request.url,
         userAgent: request.get("user-agent"),
+        protocol: request.protocol,
+        forwardedProto: request.get("x-forwarded-proto"),
+        secure: request.secure,
         hasBearerHeader: Boolean(request.headers.authorization),
         hasAuthCookie: Boolean(request.cookies?.authorization)
+    };
+}
+
+function isSecureAuthRequest(request) {
+    const forwardedProto = request.get("x-forwarded-proto");
+    return request.secure || forwardedProto?.split(",")[0].trim() === "https";
+}
+
+function getAuthCookieOptions(request) {
+    return {
+        ...authCookieOptions,
+        secure: isSecureAuthRequest(request)
     };
 }
 
@@ -170,14 +185,16 @@ function generateAccessToken(user) {
     return token;
 }
 
-function setAuthCookie(response, token) {
+function setAuthCookie(request, response, token) {
+    const cookieOptions = getAuthCookieOptions(request);
     logAuthEvent("info", "Setting authorization cookie", {
-        secure: authCookieOptions.secure,
-        sameSite: authCookieOptions.sameSite,
-        httpOnly: authCookieOptions.httpOnly,
+        ...getAuthRequestDetails(request),
+        secure: cookieOptions.secure,
+        sameSite: cookieOptions.sameSite,
+        httpOnly: cookieOptions.httpOnly,
         token: getTokenLogDetails(token)
     });
-    response.cookie("authorization", token, authCookieOptions);
+    response.cookie("authorization", token, cookieOptions);
 }
 
 function normalizeUsername(username) {
@@ -306,7 +323,7 @@ app.post("/register", async (request, response) => {
         username,
         token: getTokenLogDetails(token)
     });
-    setAuthCookie(response, token);
+    setAuthCookie(request, response, token);
     logAuthEvent("info", "Register request completed", {username});
     response.json({username, token});
 });
@@ -371,7 +388,7 @@ app.post("/login", async (request, response) => {
         username,
         token: getTokenLogDetails(token)
     });
-    setAuthCookie(response, token);
+    setAuthCookie(request, response, token);
     logAuthEvent("info", "Login request completed", {
         username,
         token: getTokenLogDetails(token)
@@ -442,7 +459,7 @@ app.delete("/logout", authenticateToken, async (request, response) => {
         username,
         previousToken: getTokenLogDetails(user.token)
     });
-    response.clearCookie("authorization", authCookieOptions);
+    response.clearCookie("authorization", getAuthCookieOptions(request));
     logAuthEvent("info", "Logout request completed", {username});
     response.json({message: "Logged out successfully."});
 });
