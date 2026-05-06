@@ -112,7 +112,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     const loadPublicLobbies = async () => {
         try {
             publicLobbies.innerHTML = "<p>Loading lobbies...</p>";
-            const res = await fetch("/lobby/public");
+            const res = await fetch("/lobby/public", {credentials: "same-origin"});
             if (!res.ok) {
                 throw new Error("Failed to load lobbies");
             }
@@ -150,8 +150,20 @@ document.addEventListener("DOMContentLoaded", async () => {
         socket = new WebSocket(`${protocol}//${window.location.host}`);
 
         socketReady = new Promise((resolve, reject) => {
-            socket.addEventListener("open", () => resolve(socket), {once: true});
             socket.addEventListener("error", () => reject(new Error("WebSocket connection failed")), {once: true});
+            socket.addEventListener("close", (event) => {
+                reject(new Error(`WebSocket closed before authentication: ${event.reason || event.code}`));
+            }, {once: true});
+            socket.addEventListener("message", (event) => {
+                const message = JSON.parse(event.data);
+                if (message.type === "auth:success") {
+                    currentUsername = message.username;
+                    resolve(socket);
+                }
+                if (message.type === "auth:error") {
+                    reject(new Error(message.message || "WebSocket authentication failed"));
+                }
+            }, {once: true});
         });
 
         socket.addEventListener("message", (event) => {
@@ -204,7 +216,14 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     const getUsernameFromToken = async () => {
         try {
-            const res = await fetch("/verify", {method: "POST"});
+            const res = await fetch("/verify", {
+                method: "POST",
+                credentials: "same-origin"
+            });
+            if (!res.ok) {
+                console.error("Token verification failed", res.status, await res.text());
+                return null;
+            }
             const data = await res.json();
             return data.user?.username;
         } catch (err) {
@@ -215,13 +234,20 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     try {
         await connectSocket();
-        currentUsername = await getUsernameFromToken();
+        currentUsername = currentUsername || await getUsernameFromToken();
+        if (!currentUsername) {
+            showJoinError("User not authenticated.");
+        }
     } catch (error) {
+        console.error("Home authentication failed:", error);
         showJoinError("Real-time poker connection failed.");
     }
 
     try {
-        const balanceRes = await fetch("/balance", {method: "GET"});
+        const balanceRes = await fetch("/balance", {
+            method: "GET",
+            credentials: "same-origin"
+        });
         if (balanceRes.ok) {
             const balanceData = await balanceRes.json();
             balance.textContent = balanceData.balance;
@@ -236,7 +262,10 @@ document.addEventListener("DOMContentLoaded", async () => {
             if (socket && socket.readyState === WebSocket.OPEN) {
                 socket.close();
             }
-            const logoutRes = await fetch("/logout", {method: "DELETE"});
+            const logoutRes = await fetch("/logout", {
+                method: "DELETE",
+                credentials: "same-origin"
+            });
             if (logoutRes.ok) {
                 document.cookie = "authorization=; Max-Age=0; path=/;";
                 window.location.href = "/login.html";
@@ -323,7 +352,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     async function loadLeaderboard() {
         try {
-            const res = await fetch("/leaderboard");
+            const res = await fetch("/leaderboard", {credentials: "same-origin"});
             if (res.ok) {
                 const data = await res.json();
                 const list = document.getElementById("leaderboard-list");
