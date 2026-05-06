@@ -63,6 +63,25 @@ button:hover {
     background: #1f1;
 }
 
+button:disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.auth-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.auth-error {
+    color: #ff6b6b;
+    font-size: 14px;
+    line-height: 1.4;
+    margin: 0;
+    text-align: center;
+}
+
 .hidden {
     display: none !important;
 }

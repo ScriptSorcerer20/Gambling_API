@@ -1,42 +1,89 @@
-﻿document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", () => {
     const form = document.querySelector("form");
+    const registerButton = document.getElementById("register-button");
+    const loginButton = document.getElementById("login-button");
+    const authError = document.getElementById("auth-error");
 
-    form.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const username = form.username.value;
-        const password = form.password.value;
-        const credentials = {username, password};
+    form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        await authenticate("/login", "Login successful. Loading Lobby...");
+    });
+
+    registerButton.addEventListener("click", async () => {
+        await authenticate("/register", "Register successful. Loading Lobby...");
+    });
+
+    async function authenticate(endpoint, successMessage) {
+        clearAuthError();
+        setButtonsDisabled(true);
+
+        const credentials = {
+            username: form.username.value,
+            password: form.password.value
+        };
+
         try {
-            const loginRes = await fetch("/login", {
+            const response = await fetch(endpoint, {
                 method: "POST",
                 headers: {"Content-Type": "application/json"},
-                body: JSON.stringify(credentials),
+                credentials: "same-origin",
+                body: JSON.stringify(credentials)
             });
 
-            if (loginRes.ok) {
-                await loginRes.json();
-                showLoadingScreen("Login successful. Loading Lobby...");
+            const data = await readJsonResponse(response);
+            if (!response.ok) {
+                showAuthError(data.error || "Authentication failed.");
                 return;
             }
 
-            const registerRes = await fetch("/register", {
-                method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify(credentials),
-            });
-
-            if (registerRes.ok) {
-                await registerRes.json();
-                showLoadingScreen("Register successful. Loading Lobby...");
-            } else {
-                const error = await registerRes.json();
-                alert("Register failed: " + (error.error || "Unknown error"));
+            const verified = await verifySession();
+            if (!verified) {
+                showAuthError("Login succeeded, but the browser did not send the session cookie back to the server.");
+                return;
             }
-        } catch (err) {
-            console.error("Network error:", err);
-            alert("Server unreachable.");
+
+            showLoadingScreen(successMessage);
+        } catch (error) {
+            console.error("Authentication request failed:", error);
+            showAuthError("Server unreachable.");
+        } finally {
+            setButtonsDisabled(false);
         }
-    });
+    }
+
+    async function verifySession() {
+        const response = await fetch("/verify", {
+            method: "POST",
+            credentials: "same-origin"
+        });
+        if (!response.ok) return false;
+
+        const data = await readJsonResponse(response);
+        return Boolean(data.valid && data.user?.username);
+    }
+
+    async function readJsonResponse(response) {
+        try {
+            return await response.json();
+        } catch {
+            return {};
+        }
+    }
+
+    function showAuthError(message) {
+        authError.textContent = message;
+        authError.classList.remove("hidden");
+    }
+
+    function clearAuthError() {
+        authError.textContent = "";
+        authError.classList.add("hidden");
+    }
+
+    function setButtonsDisabled(disabled) {
+        loginButton.disabled = disabled;
+        registerButton.disabled = disabled;
+    }
 
     function showLoadingScreen(message) {
         const loadingScreen = document.getElementById("loading-screen");
