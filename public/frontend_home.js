@@ -232,16 +232,15 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     };
 
-    try {
-        await connectSocket();
-        currentUsername = currentUsername || await getUsernameFromToken();
-        if (!currentUsername) {
-            showJoinError("User not authenticated.");
-        }
-    } catch (error) {
-        console.error("Home authentication failed:", error);
-        showJoinError("Real-time poker connection failed.");
+    currentUsername = await getUsernameFromToken();
+    if (!currentUsername) {
+        showJoinError("User not authenticated.");
     }
+
+    connectSocket().catch((error) => {
+        console.error("Home WebSocket connection failed:", error);
+        showJoinError("Real-time poker connection failed.");
+    });
 
     try {
         const balanceRes = await fetch("/balance", {
