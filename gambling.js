@@ -29,6 +29,44 @@ app.use(express.json());
 app.use("/swagger-ui", swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 app.use(cookieParser());
 
+function logAuthEvent(level, message, details = {}) {
+    const safeDetails = Object.entries(details).reduce((result, [key, value]) => {
+        if (value !== undefined) result[key] = value;
+        return result;
+    }, {});
+    const logger = console[level] || console.log;
+    logger(`[auth] ${message}`, safeDetails);
+}
+
+function getTokenLogDetails(token) {
+    if (!token) {
+        return {
+            present: false
+        };
+    }
+
+    const decoded = jwt.decode(token) || {};
+    return {
+        present: true,
+        fingerprint: crypto.createHash("sha256").update(token).digest("hex").slice(0, 12),
+        length: token.length,
+        subject: decoded.username,
+        issuedAt: decoded.iat ? new Date(decoded.iat * 1000).toISOString() : undefined,
+        expiresAt: decoded.exp ? new Date(decoded.exp * 1000).toISOString() : undefined
+    };
+}
+
+function getAuthRequestDetails(request) {
+    return {
+        ip: request.ip,
+        method: request.method,
+        path: request.originalUrl || request.url,
+        userAgent: request.get("user-agent"),
+        hasBearerHeader: Boolean(request.headers.authorization),
+        hasAuthCookie: Boolean(request.cookies?.authorization)
+    };
+}
+
 /*
     Here are Helper function  -----------------------------------------------------------------------------------------------
  */
@@ -123,10 +161,22 @@ async function setUserMoney(username, money) {
 }
 
 function generateAccessToken(user) {
-    return jwt.sign(user, process.env.TOKEN_SECRET, {expiresIn: "1800s"});
+    logAuthEvent("info", "Generating access token", {username: user.username});
+    const token = jwt.sign(user, process.env.TOKEN_SECRET, {expiresIn: "1800s"});
+    logAuthEvent("info", "Generated access token", {
+        username: user.username,
+        token: getTokenLogDetails(token)
+    });
+    return token;
 }
 
 function setAuthCookie(response, token) {
+    logAuthEvent("info", "Setting authorization cookie", {
+        secure: authCookieOptions.secure,
+        sameSite: authCookieOptions.sameSite,
+        httpOnly: authCookieOptions.httpOnly,
+        token: getTokenLogDetails(token)
+    });
     response.cookie("authorization", token, authCookieOptions);
 }
 
@@ -154,13 +204,44 @@ function getAuthTokenFromRequest(request) {
 }
 
 async function verifyAuthToken(token) {
-    if (!token) return null;
+    if (!token) {
+        logAuthEvent("warn", "Token verification skipped because token is missing");
+        return null;
+    }
+    logAuthEvent("info", "Verifying access token", {token: getTokenLogDetails(token)});
     try {
         const decoded = jwt.verify(token, process.env.TOKEN_SECRET);
+        logAuthEvent("info", "JWT signature verified", {
+            username: decoded.username,
+            token: getTokenLogDetails(token)
+        });
         const foundUser = await findUserByUsername(decoded.username);
-        if (!foundUser || foundUser.token !== token) return null;
+        if (!foundUser) {
+            logAuthEvent("warn", "Token verification failed because user was not found", {
+                username: decoded.username,
+                token: getTokenLogDetails(token)
+            });
+            return null;
+        }
+        if (foundUser.token !== token) {
+            logAuthEvent("warn", "Token verification failed because stored token does not match", {
+                username: decoded.username,
+                incomingToken: getTokenLogDetails(token),
+                storedToken: getTokenLogDetails(foundUser.token)
+            });
+            return null;
+        }
+        logAuthEvent("info", "Token verified against stored user session", {
+            username: decoded.username,
+            token: getTokenLogDetails(token)
+        });
         return decoded;
-    } catch {
+    } catch (error) {
+        logAuthEvent("warn", "Token verification failed", {
+            error: error.message,
+            name: error.name,
+            token: getTokenLogDetails(token)
+        });
         return null;
     }
 }
@@ -170,12 +251,28 @@ async function authenticateToken(request, response, next) {
         "bearerAuth": []
     }] */
     const token = getAuthTokenFromRequest(request);
-    if (token == null) return response.sendStatus(401);
+    logAuthEvent("info", "Authenticating request", {
+        ...getAuthRequestDetails(request),
+        token: getTokenLogDetails(token)
+    });
+    if (token == null) {
+        logAuthEvent("warn", "Authentication failed because token is missing", getAuthRequestDetails(request));
+        return response.sendStatus(401);
+    }
     const user = await verifyAuthToken(token);
     if (!user) {
+        logAuthEvent("warn", "Authentication failed because token is invalid or revoked", {
+            ...getAuthRequestDetails(request),
+            token: getTokenLogDetails(token)
+        });
         return response.status(403).json({error: "Token has been revoked or is invalid"});
     }
     request.user = user;
+    logAuthEvent("info", "Request authenticated", {
+        ...getAuthRequestDetails(request),
+        username: user.username,
+        token: getTokenLogDetails(token)
+    });
     next();
 }
 
@@ -185,16 +282,32 @@ async function authenticateToken(request, response, next) {
 
 app.post("/register", async (request, response) => {
     let {username, password} = request.body;
+    logAuthEvent("info", "Register request received", {
+        ...getAuthRequestDetails(request),
+        username: normalizeUsername(username),
+        hasPassword: isValidPassword(password)
+    });
     username = normalizeUsername(username);
-    if (!username || !isValidPassword(password))
+    if (!username || !isValidPassword(password)) {
+        logAuthEvent("warn", "Register request rejected because credentials are incomplete", {
+            username,
+            hasPassword: isValidPassword(password)
+        });
         return response.status(400).json({error: "Username and password are required"});
+    }
     const existingUser = await findUserByUsername(username);
     if (existingUser) {
+        logAuthEvent("warn", "Register request rejected because username already exists", {username});
         return response.status(400).json({error: "Username already exists"});
     }
     const token = generateAccessToken({username});
     await saveUser({username, password, token, money: 200});
+    logAuthEvent("info", "Registered user and stored initial token", {
+        username,
+        token: getTokenLogDetails(token)
+    });
     setAuthCookie(response, token);
+    logAuthEvent("info", "Register request completed", {username});
     response.json({username, token});
 });
 
@@ -224,18 +337,45 @@ app.get("/login", (request, response) => {
 
 app.post("/login", async (request, response) => {
     let {username, password} = request.body;
+    logAuthEvent("info", "Login request received", {
+        ...getAuthRequestDetails(request),
+        username: normalizeUsername(username),
+        hasPassword: isValidPassword(password)
+    });
     username = normalizeUsername(username);
-    if (!username || !isValidPassword(password))
+    if (!username || !isValidPassword(password)) {
+        logAuthEvent("warn", "Login request rejected because credentials are incomplete", {
+            username,
+            hasPassword: isValidPassword(password)
+        });
         return response.status(400).json({error: "Username and password are required"});
+    }
     const user = await findUserByUsername(username);
-    if (!user) return response.status(401).json({error: "Invalid credentials"});
+    if (!user) {
+        logAuthEvent("warn", "Login request rejected because user was not found", {username});
+        return response.status(401).json({error: "Invalid credentials"});
+    }
+    logAuthEvent("info", "Login user record found", {
+        username,
+        existingToken: getTokenLogDetails(user.token)
+    });
     const passwordMatches = await bcrypt.compare(password, user.passwordHash);
     if (!passwordMatches) {
+        logAuthEvent("warn", "Login request rejected because password did not match", {username});
         return response.status(401).json({error: "Invalid password"});
     }
+    logAuthEvent("info", "Login password matched", {username});
     const token = generateAccessToken({username});
     await setUserToken(username, token);
+    logAuthEvent("info", "Stored new login token", {
+        username,
+        token: getTokenLogDetails(token)
+    });
     setAuthCookie(response, token);
+    logAuthEvent("info", "Login request completed", {
+        username,
+        token: getTokenLogDetails(token)
+    });
     response.json({username, token});
 });
 
@@ -244,13 +384,27 @@ app.get("/", async (req, res) => {
         req.headers.authorization?.split(" ")[1] ||
         req.cookies.authorization;
     if (!token) {
+        logAuthEvent("warn", "Home request rejected because token is missing", getAuthRequestDetails(req));
         return res.sendFile(path.join(__dirname, "./public/unauthorized.html"));
     }
+    logAuthEvent("info", "Home request token received", {
+        ...getAuthRequestDetails(req),
+        token: getTokenLogDetails(token)
+    });
     const user = await verifyAuthToken(token);
     if (!user) {
+        logAuthEvent("warn", "Home request rejected because token is invalid", {
+            ...getAuthRequestDetails(req),
+            token: getTokenLogDetails(token)
+        });
         return res.sendFile(path.join(__dirname, "./public/unauthorized.html"));
     }
     req.user = user;
+    logAuthEvent("info", "Home request authorized", {
+        ...getAuthRequestDetails(req),
+        username: user.username,
+        token: getTokenLogDetails(token)
+    });
     res.sendFile(path.join(__dirname, "./public/home.html"));
 });
 
@@ -272,12 +426,24 @@ app.post("/verify", authenticateToken, (request, response) => {
 
 app.delete("/logout", authenticateToken, async (request, response) => {
     const username = request.user.username;
+    logAuthEvent("info", "Logout request received", {
+        ...getAuthRequestDetails(request),
+        username
+    });
     const user = await findUserByUsername(username);
-    if (!user) return response.status(404).json({error: "User not found"});
+    if (!user) {
+        logAuthEvent("warn", "Logout request rejected because user was not found", {username});
+        return response.status(404).json({error: "User not found"});
+    }
     const lobbyId = user.lobbyId;
     await leavePokerLobby(lobbyId, username);
     await setUserToken(username, null);
+    logAuthEvent("info", "Cleared stored user token during logout", {
+        username,
+        previousToken: getTokenLogDetails(user.token)
+    });
     response.clearCookie("authorization", authCookieOptions);
+    logAuthEvent("info", "Logout request completed", {username});
     response.json({message: "Logged out successfully."});
 });
 
