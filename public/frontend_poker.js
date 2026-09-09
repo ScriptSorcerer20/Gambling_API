@@ -38,7 +38,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let callAmount = 0;
     let countdownTimer = null;
     const actionTooltips = {
-        hit: "Check or call if your bet already matches the table.",
+        hit: "Check when no chips are owed; otherwise call the table bet.",
         fold: "Give up this hand and lose your current stake.",
         bet: "Open the bet dialog to add chips to the pot."
     };
@@ -131,6 +131,7 @@ document.addEventListener("DOMContentLoaded", () => {
         finally { actionPending = false; updateActionButtons(); }
     };
     const closeModal = () => {
+        if (betModal.classList.contains("hidden")) return;
         betModal.classList.add("hidden");
         previousFocus?.focus();
     };
@@ -286,7 +287,7 @@ document.addEventListener("DOMContentLoaded", () => {
         button.addEventListener("click", () => {
             const action = button.dataset.action;
             if (isSpectator) {
-                showError("You are out of chips and can only spectate.");
+                showError("You are not active in this hand.");
                 return;
             }
             if (!isYourTurn) {
@@ -301,16 +302,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 return;
             }
 
-            sendSocketMessage({type: "poker:action", action, payload: {lobbyId}}).catch(() => {
-                showError("Could not send poker action.");
-            });
+            sendSocketMessage({type: "poker:action", action}).catch(error => showError(error.message));
         });
     });
 
     leaveTable.addEventListener("click", () => {
-        sendSocketMessage({type: "lobby:leave", lobbyId}).catch(() => {
-            showError("Could not leave table.");
-        });
+        sendSocketMessage({type: "lobby:leave", lobbyId}).catch(error => showError(error.message));
     });
 
     closeBet.addEventListener("click", closeModal);
@@ -328,7 +325,7 @@ document.addEventListener("DOMContentLoaded", () => {
     increaseBet.addEventListener("click", () => setBetValue(Number(betRange.value) + 10));
     confirmBet.addEventListener("click", () => {
         if (isSpectator) {
-            showError("You are out of chips and can only spectate.");
+            showError("You are not active in this hand.");
             betModal.classList.add("hidden");
             return;
         }
@@ -341,7 +338,7 @@ document.addEventListener("DOMContentLoaded", () => {
             type: "poker:action",
             action: "bet",
             payload: {amount: Number(betRange.value), lobbyId}
-        }).catch(() => showError("Could not place bet."));
+        }).catch(error => showError(error.message));
         closeModal();
     });
 });
