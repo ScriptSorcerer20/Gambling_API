@@ -32,7 +32,8 @@ test('accepted actions persist once; failed commits leave both memory and databa
     await assert.rejects(api.lobbies.command('b', message), /Injected/);
     assert.equal(JSON.stringify(api.lobbies.get(lobbyId)), before);
     assert.equal((await api.repository.user('b')).money, 190);
-    await Promise.all([api.lobbies.command('b', message), api.lobbies.command('b', message)]);
+    const reordered = {payload: message.payload, action: message.action, requestId: message.requestId, lobbyId: message.lobbyId, type: message.type};
+    await Promise.all([api.lobbies.command('b', message), api.lobbies.command('b', reordered)]);
     assert.equal((await api.repository.user('b')).money, 170);
     assert.equal(api.lobbies.get(lobbyId).game.pot, 50);
     await assert.rejects(api.lobbies.command('b', {...message, action: 'fold'}), error => error.code === 'IDEMPOTENCY_CONFLICT');
@@ -96,4 +97,31 @@ test('reopening a database refunds interrupted escrow exactly once', async t => 
         assert.deepEqual(await restarted.totals(), {users: 400, escrow: 0});
         assert.equal((await restarted.user('a')).money, 200); assert.equal((await restarted.user('b')).money, 200);
     } finally {await restarted.close();}
+});
+test('account membership and host starts serialize even when requests arrive together', async t => {
+    const api = await createApplication({secret,databasePath:':memory:',bcryptRounds:4,intermissionMs:60000});
+    t.after(()=>api.close());
+    for(const username of ['a','b']) await api.sessions.register({username,password:'password'});
+    const creates=await Promise.allSettled([command(api.lobbies,'a','lobby:create'),command(api.lobbies,'a','lobby:create')]);
+    assert.equal(creates.filter(item=>item.status==='fulfilled').length,1);
+    const {lobbyId}=creates.find(item=>item.status==='fulfilled').value;
+    await command(api.lobbies,'b','lobby:join',{lobbyId});
+    const starts=await Promise.allSettled([command(api.lobbies,'a','poker:start',{lobbyId}),command(api.lobbies,'a','poker:start',{lobbyId})]);
+    assert.equal(starts.filter(item=>item.status==='fulfilled').length,1);
+});
+test('a departure waits for an in-flight action commit and cannot overwrite its balance', async t => {
+    let pause=null;
+    const {api,lobbyId}=await setup(t,{repositoryHooks:{beforeCommit:async()=>{if(pause) await pause();}}});
+    let reached,release;
+    const entered=new Promise(resolve=>{reached=resolve;});
+    const gate=new Promise(resolve=>{release=resolve;});
+    pause=async()=>{reached();await gate;};
+    const action=command(api.lobbies,'b','poker:action',{lobbyId,action:'bet',payload:{amount:20}});
+    await entered;
+    const departure=command(api.lobbies,'b','lobby:leave',{lobbyId});
+    pause=null;release();
+    await Promise.all([action,departure]);
+    assert.equal((await api.repository.user('b')).money,170);
+    assert.equal(api.lobbies.get(lobbyId).game.contributions.b,30);
+    const totals=await api.repository.totals();assert.equal(totals.users+totals.escrow,600);
 });

@@ -101,7 +101,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (winner) {
             const heading = document.createElement("h2");
-            heading.textContent = `Winner: ${winner}`;
+            heading.textContent = `Payout recipients: ${winner}`;
             showdownPanel.appendChild(heading);
         }
 
@@ -248,6 +248,11 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             if (message.type === "auth:error" || message.type === "poker:error" || message.type === "error") {
+                if (["NOT_SEATED", "LOBBY_NOT_FOUND"].includes(message.code)) {
+                    localStorage.removeItem("activeLobbyId");
+                    location.assign("/");
+                    return;
+                }
                 showError(message.message || "Poker connection failed");
             }
     });

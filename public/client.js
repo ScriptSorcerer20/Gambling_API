@@ -1,6 +1,6 @@
 'use strict';
 window.apiRequest = async function (url, options = {}) {
-    const response = await fetch(url, {credentials: 'same-origin', ...options});
+    const response = await fetch(url, {credentials: 'same-origin', signal: AbortSignal.timeout(5000), ...options});
     const data = await response.json().catch(() => ({}));
     if (response.status === 401) {
         localStorage.removeItem('activeLobbyId');
@@ -45,15 +45,16 @@ window.RealtimeClient = class extends EventTarget {
             }
             this.dispatchEvent(new CustomEvent('message', {detail: message}));
         });
-        socket.addEventListener('error', () => this.status('Connection interrupted. Reconnecting…'));
+        socket.addEventListener('error', () => this.status('Connection interrupted. Reconnecting...'));
         socket.addEventListener('close', async event => {
             clearTimeout(timeout); this.ready = false;
             if (this.stopped) return;
-            this.status('Connection interrupted. Reconnecting…');
+            this.status('Connection interrupted. Reconnecting...');
             if (event.code === 1008 && /Session/.test(event.reason)) {
                 this.close(); localStorage.removeItem('activeLobbyId'); location.assign('/login'); return;
             }
             try { await apiRequest('/verify', {method: 'POST'}); } catch { /* apiRequest redirects expired sessions; network outages are retried. */ }
+            if (this.stopped) return;
             if (++this.attempts > 5) { this.close(); this.status('Could not reconnect. Reload to try again.'); return; }
             this.reconnectTimer = setTimeout(() => this.open(), Math.min(500 * 2 ** (this.attempts - 1), 5000));
         });
