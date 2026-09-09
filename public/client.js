@@ -45,11 +45,11 @@ window.RealtimeClient = class extends EventTarget {
             }
             this.dispatchEvent(new CustomEvent('message', {detail: message}));
         });
-        socket.addEventListener('error', () => this.status('Connection interrupted. Reconnectingâ€¦'));
+        socket.addEventListener('error', () => this.status('Connection interrupted. Reconnecting...'));
         socket.addEventListener('close', async event => {
             clearTimeout(timeout); this.ready = false;
             if (this.stopped) return;
-            this.status('Connection interrupted. Reconnectingâ€¦');
+            this.status('Connection interrupted. Reconnecting...');
             if (event.code === 1008 && /Session/.test(event.reason)) {
                 this.close(); localStorage.removeItem('activeLobbyId'); location.assign('/login'); return;
             }

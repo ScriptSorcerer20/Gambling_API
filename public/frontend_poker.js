@@ -101,7 +101,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
         if (winner) {
             const heading = document.createElement("h2");
-            heading.textContent = `Winner: ${winner}`;
+            heading.textContent = `Payout recipients: ${winner}`;
             showdownPanel.appendChild(heading);
         }
 
