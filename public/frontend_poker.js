@@ -11,6 +11,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const yourStack = document.getElementById("your-stack");
     const currentTurn = document.getElementById("current-turn");
     const turnState = document.getElementById("turn-state");
+    const turnCountdown = document.getElementById("turn-countdown");
+    const turnProgressBar = document.getElementById("turn-progress-bar");
+    const turnAnnouncement = document.getElementById("turn-announcement");
     const turnQueue = document.getElementById("turn-queue");
     const lastAction = document.getElementById("last-action");
     const showdownPanel = document.getElementById("showdown-panel");
@@ -89,8 +92,9 @@ document.addEventListener("DOMContentLoaded", () => {
         turnQueue.innerHTML = "";
         queue.forEach((player, index) => {
             const item = document.createElement("li");
-            item.textContent = index === 0 ? `${player} (now)` : player;
+            item.textContent = index === 0 ? `${player} · NOW` : index === 1 ? `${player} · NEXT` : player;
             item.classList.toggle("active", player === currentPlayer);
+            item.classList.toggle("next", index === 1);
             turnQueue.appendChild(item);
         });
     };
@@ -157,12 +161,25 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     };
 
+    const setTurnTimer = (seconds, totalSeconds) => {
+        turnCountdown.textContent = String(seconds);
+        turnProgressBar.style.width = `${Math.max(0, Math.min(100, (seconds / Math.max(1, totalSeconds)) * 100))}%`;
+        document.querySelector(".turn-panel").classList.toggle("urgent", seconds <= 10 && seconds > 0);
+    };
+
+    const announceTurn = (message) => {
+        if (turnAnnouncement.textContent !== message) turnAnnouncement.textContent = message;
+    };
+
     const renderIntermissionCountdown = (startsAt, baseMessage) => {
         stopCountdown();
+        const totalSeconds = Math.max(1, Math.ceil((Number(startsAt) - Date.now()) / 1000));
         const updateCountdown = () => {
             const seconds = Math.max(0, Math.ceil((Number(startsAt) - Date.now()) / 1000));
-            currentTurn.textContent = `${seconds}s`;
-            turnState.textContent = "Waiting for next round";
+            currentTurn.textContent = "NEXT HAND";
+            turnState.textContent = "TABLE RESET IN PROGRESS";
+            setTurnTimer(seconds, totalSeconds);
+            announceTurn("The next hand is about to start.");
             lastAction.textContent = baseMessage || `Next round starts in ${seconds}s. Minimum stake: $${minimumStake}.`;
             if (seconds <= 0) {
                 stopCountdown();
@@ -174,12 +191,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const renderTurnCountdown = (startsAt, currentPlayer) => {
         stopCountdown();
+        const totalSeconds = Math.max(1, Math.ceil((Number(startsAt) - Date.now()) / 1000));
         const updateCountdown = () => {
             const seconds = Math.max(0, Math.ceil((Number(startsAt) - Date.now()) / 1000));
-            currentTurn.textContent = `${currentPlayer || "Player"} (${seconds}s)`;
+            currentTurn.textContent = isYourTurn ? "YOUR TURN" : currentPlayer || "PLAYER TURN";
             turnState.textContent = isYourTurn
-                ? `Your decision (${seconds}s)`
-                : `Waiting for other player (${seconds}s)`;
+                ? "ACT NOW — CHOOSE AN ACTION"
+                : `WAITING FOR ${currentPlayer || "PLAYER"}`;
+            setTurnTimer(seconds, totalSeconds);
+            announceTurn(isYourTurn ? "It is your turn. Choose an action before the timer expires." : `It is ${currentPlayer || "another player's"} turn.`);
             if (seconds <= 0) {
                 stopCountdown();
             }
@@ -221,6 +241,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 } else {
                     stopCountdown();
                     currentTurn.textContent = message.currentPlayer || "Round ended";
+                    turnCountdown.textContent = "--";
+                    turnProgressBar.style.width = "0%";
+                    document.querySelector(".turn-panel").classList.remove("urgent");
                     turnState.textContent = isSpectator
                         ? "Spectating"
                         : isYourTurn

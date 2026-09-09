@@ -25,8 +25,14 @@
 
     <section class="community-area" aria-label="Community cards">
         <div class="turn-panel">
-            <span>Turn: <strong id="current-turn">Waiting...</strong></span>
-            <span id="turn-state">Waiting for table state</span>
+            <span id="turn-state" class="turn-kicker">Waiting for table state</span>
+            <strong id="current-turn" class="turn-player">Waiting...</strong>
+            <div class="turn-timer" aria-label="Time remaining">
+                <span id="turn-countdown" class="turn-countdown">--</span>
+                <span class="turn-seconds">seconds remaining</span>
+            </div>
+            <div class="turn-progress" aria-hidden="true"><span id="turn-progress-bar"></span></div>
+            <span id="turn-announcement" class="sr-only" aria-live="polite"></span>
         </div>
         <ol id="turn-queue" class="turn-queue"></ol>
         <div id="community-cards" class="card-row">

@@ -112,9 +112,9 @@ button:disabled:hover {
 }
 
 .turn-panel {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 18px;
+    display: grid;
+    grid-template-columns: auto auto;
+    column-gap: 20px;
     align-items: center;
     justify-content: center;
     min-width: min(460px, calc(100vw - 32px));
@@ -122,9 +122,20 @@ button:disabled:hover {
     background: rgba(0, 0, 0, 0.78);
     box-shadow: 0 0 8px #0f0;
     color: #fff;
-    padding: 10px 16px;
+    padding: 14px 18px;
     font-family: monospace;
 }
+
+.turn-kicker { grid-column: 1; color: #a8d8aa; font-size: 12px; letter-spacing: .08em; }
+.turn-player { grid-column: 1; color: #fff; font-size: 24px; line-height: 1; text-shadow: 0 0 8px #0f0; }
+.turn-timer { grid-column: 2; grid-row: 1 / span 2; display: grid; justify-items: center; min-width: 92px; border-left: 1px solid rgba(0, 255, 0, .45); padding-left: 18px; }
+.turn-countdown { color: #0f0; font-size: 38px; font-weight: 800; line-height: 1; text-shadow: 0 0 12px #0f0; }
+.turn-seconds { color: #d8ffd8; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; }
+.turn-progress { grid-column: 1 / -1; height: 5px; background: #153019; overflow: hidden; }
+.turn-progress span { display: block; width: 0; height: 100%; background: #0f0; box-shadow: 0 0 10px #0f0; transition: width .25s linear, background .2s; }
+.turn-panel.urgent { border-color: #ff394d; box-shadow: 0 0 14px #ff394d; }
+.turn-panel.urgent .turn-countdown { color: #ff5263; text-shadow: 0 0 14px #ff394d; }
+.turn-panel.urgent .turn-progress span { background: #ff394d; box-shadow: 0 0 10px #ff394d; }
 
 .turn-queue {
     display: flex;
@@ -149,6 +160,8 @@ button:disabled:hover {
     background: #0f0;
     color: #000;
 }
+
+.turn-queue li.next { border-color: #a8d8aa; color: #d8ffd8; }
 
 .card {
     width: 78px;
@@ -370,6 +383,10 @@ button:disabled:hover {
         font-size: 16px;
         padding: 12px 16px;
     }
+
+    .turn-panel { grid-template-columns: 1fr; justify-items: center; text-align: center; }
+    .turn-kicker, .turn-player { grid-column: 1; }
+    .turn-timer { grid-column: 1; grid-row: auto; border-left: 0; border-top: 1px solid rgba(0, 255, 0, .45); padding: 10px 0 0; }
 
     .card {
         width: 58px;
