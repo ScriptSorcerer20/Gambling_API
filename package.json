@@ -2,9 +2,16 @@
   "name": "gambling_api",
   "version": "1.0.0",
   "description": "",
-  "main": "swagger.js",
+  "main": "gambling.js",
   "scripts": {
-    "test": "node --check gambling.js && node --check public/frontend_home.js && node --check public/frontend_login.js && node --check public/frontend_poker.js && node --check swagger.js"
+    "start": "node gambling.js",
+    "dev": "node --watch gambling.js",
+    "docs": "node swagger.js",
+    "check": "node scripts/check.js && node swagger.js --check",
+    "test": "npm run check && node --test --test-isolation=none test/*.test.js",
+    "test:e2e": "playwright test",
+    "migrate:legacy": "node scripts/migrate-legacy.js",
+    "audit:deps": "npm audit --audit-level=high"
   },
   "repository": {
     "type": "git",
@@ -23,6 +30,9 @@
     "ws": "^8.20.0"
   },
   "devDependencies": {
-    "swagger-autogen": "^2.23.7"
+    "@playwright/test": "^1.63.0"
+  },
+  "engines": {
+    "node": ">=24"
   }
 }

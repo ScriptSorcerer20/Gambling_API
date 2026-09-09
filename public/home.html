@@ -2,7 +2,9 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Home</title>
+    <link rel="stylesheet" href="shared.css">
     <link rel="stylesheet" href="styles_home.css">
     <link rel="icon" href="gambling.png" type="image/x-icon">
 </head>
@@ -40,6 +42,7 @@
 </div>
 <div id="join-form" class="join-browser hidden">
     <div class="join-code-row">
+        <label class="sr-only" for="join-code">Lobby code</label>
         <input type="text" id="join-code" placeholder="Enter Lobby ID"/>
         <button id="submit-join">Join</button>
     </div>
@@ -51,7 +54,7 @@
         <p>No public lobbies found</p>
     </div>
 </div>
-<div id="join-error" class="error-message hidden"></div>
+<div id="join-error" role="alert" aria-live="polite" class="error-message hidden"></div>
 <div id="lobby-room" class="lobby-room hidden">
     <div class="lobby-header">
         <button id="leave-button" class="leave-button">Leave Lobby</button>
@@ -63,6 +66,8 @@
     <button id="start-game" class="start-game hidden" disabled>Start Game</button>
 </div>
 </body>
+<script src="protocol.js"></script>
+<script src="client.js"></script>
 <script src="frontend_home.js" defer></script>
 <script src="matrix.js"></script>
 </html>

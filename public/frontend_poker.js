@@ -26,12 +26,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const actionButtons = document.querySelectorAll(".actions button");
     const params = new URLSearchParams(window.location.search);
     const lobbyId = params.get("lobbyId") || localStorage.getItem("activeLobbyId");
-    let socket = null;
-    let socketReady = null;
+    const client = new RealtimeClient();
+    let minimumRaise = 10;
+    let raisesAllowed = true;
+    let actionPending = false;
+    let previousFocus = null;
     let isYourTurn = false;
-    let canLeaveTable = true;
     let isSpectator = false;
-    let currentStackValue = 400;
+    let currentStackValue = 0;
     let minimumStake = 10;
     let callAmount = 0;
     let countdownTimer = null;
@@ -121,22 +123,30 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     const sendSocketMessage = async (message) => {
-        const ws = await connectSocket();
-        ws.send(JSON.stringify(message));
+        message = {...message, lobbyId};
+        if (message.payload?.amount !== undefined) message.payload = {amount: message.payload.amount};
+        else delete message.payload;
+        actionPending = true; updateActionButtons();
+        try { await client.send(message); }
+        finally { actionPending = false; updateActionButtons(); }
     };
-
+    const closeModal = () => {
+        betModal.classList.add("hidden");
+        previousFocus?.focus();
+    };
     const updateActionButtons = () => {
         actionButtons.forEach((button) => {
-            button.disabled = !isYourTurn || isSpectator;
+            button.disabled = !client.ready || actionPending || !isYourTurn || isSpectator;
             if (button.dataset.action === "hit") {
+                button.textContent = callAmount > 0 ? "Call" : "Check";
                 button.title = callAmount > 0
                     ? `Call with $${Math.min(callAmount, currentStackValue)}.`
                     : actionTooltips.hit;
             }
         });
-        confirmBet.disabled = !isYourTurn || isSpectator;
-        leaveTable.disabled = false;
-        leaveTable.title = "Leave table. Chips already in the pot are lost.";
+        confirmBet.disabled = !client.ready || actionPending || !isYourTurn || isSpectator;
+        leaveTable.disabled = !client.ready || actionPending;
+        leaveTable.title = "Leave and fold. Your committed chips stay in this hand until settlement.";
     };
 
     const stopCountdown = () => {
@@ -177,34 +187,24 @@ document.addEventListener("DOMContentLoaded", () => {
         countdownTimer = setInterval(updateCountdown, 1000);
     };
 
-    const connectSocket = () => {
-        if (socket && socket.readyState === WebSocket.OPEN) {
-            return Promise.resolve(socket);
-        }
-
-        if (socketReady) {
-            return socketReady;
-        }
-
-        const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-        socket = new WebSocket(`${protocol}//${window.location.host}`);
-
-        socketReady = new Promise((resolve, reject) => {
-            socket.addEventListener("open", () => resolve(socket), {once: true});
-            socket.addEventListener("error", () => reject(new Error("WebSocket connection failed")), {once: true});
-        });
-
-        socket.addEventListener("message", (event) => {
-            const message = JSON.parse(event.data);
-
+    client.addEventListener('status', event => {
+        if (event.detail) showError(event.detail);
+        if (!client.ready) {isYourTurn = false; stopCountdown(); closeModal();}
+        updateActionButtons();
+    });
+    client.addEventListener('message', event => {
+        const message = event.detail;
             if (message.type === "poker:state") {
                 hideError();
                 isYourTurn = Boolean(message.isYourTurn);
-                canLeaveTable = Boolean(message.canLeaveTable);
                 isSpectator = Boolean(message.isSpectator);
                 currentStackValue = Number(message.yourStack ?? 0);
                 minimumStake = Number(message.minimumStake || 10);
                 callAmount = Number(message.callAmount || 0);
+                minimumRaise = message.minimumRaise || minimumStake;
+                raisesAllowed = message.canRaise !== false;
+                if (!isYourTurn || isSpectator) closeModal();
+                else if (!betModal.classList.contains("hidden")) updateBetRange();
                 roundDisplay.textContent = message.round;
                 potDisplay.textContent = message.pot;
                 currentBet.textContent = message.currentBet ?? message.bet;
@@ -249,15 +249,7 @@ document.addEventListener("DOMContentLoaded", () => {
             if (message.type === "auth:error" || message.type === "poker:error" || message.type === "error") {
                 showError(message.message || "Poker connection failed");
             }
-        });
-
-        socket.addEventListener("close", () => {
-            socket = null;
-            socketReady = null;
-        });
-
-        return socketReady;
-    };
+    });
 
     const setBetValue = (value) => {
         const nextValue = Math.max(Number(betRange.min), Math.min(Number(betRange.max), Number(value)));
@@ -266,12 +258,14 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     const updateBetRange = () => {
-        const maxBet = Math.max(0, currentStackValue);
-        const requiredBet = Math.max(minimumStake, callAmount);
+        const maxBet = Math.max(0, raisesAllowed ? currentStackValue : Math.min(currentStackValue, callAmount));
+        const requiredBet = raisesAllowed ? callAmount + minimumRaise : callAmount;
         const minBet = maxBet > 0 ? Math.min(requiredBet, maxBet) : 0;
         betRange.min = String(minBet);
         betRange.max = String(maxBet);
-        betRange.step = String(minimumStake);
+        betRange.step = "1";
+        document.getElementById("range-min").textContent = `$${minBet}`;
+        document.getElementById("range-max").textContent = `$${maxBet}`;
         setBetValue(Math.max(minBet, Number(betRange.value) || minBet));
     };
 
@@ -284,8 +278,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
     updateActionButtons();
 
-    connectSocket()
-        .then(() => sendSocketMessage({type: "poker:join", lobbyId}))
+    client.connect()
+        .then(() => client.send({type: "poker:join", lobbyId}))
         .catch(() => showError("Could not connect to poker table."));
 
     actionButtons.forEach((button) => {
@@ -301,7 +295,9 @@ document.addEventListener("DOMContentLoaded", () => {
             }
             if (action === "bet") {
                 updateBetRange();
+                previousFocus = document.activeElement;
                 betModal.classList.remove("hidden");
+                betRange.focus();
                 return;
             }
 
@@ -317,7 +313,16 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 
-    closeBet.addEventListener("click", () => betModal.classList.add("hidden"));
+    closeBet.addEventListener("click", closeModal);
+    betModal.addEventListener("keydown", event => {
+        if (event.key === "Escape") {event.preventDefault(); closeModal();}
+        if (event.key === "Tab") {
+            const items = [...betModal.querySelectorAll("button:not(:disabled), input:not(:disabled)")];
+            const first = items[0], last = items[items.length - 1];
+            if (event.shiftKey && document.activeElement === first) {event.preventDefault(); last.focus();}
+            else if (!event.shiftKey && document.activeElement === last) {event.preventDefault(); first.focus();}
+        }
+    });
     betRange.addEventListener("input", () => setBetValue(betRange.value));
     decreaseBet.addEventListener("click", () => setBetValue(Number(betRange.value) - 10));
     increaseBet.addEventListener("click", () => setBetValue(Number(betRange.value) + 10));
@@ -337,6 +342,6 @@ document.addEventListener("DOMContentLoaded", () => {
             action: "bet",
             payload: {amount: Number(betRange.value), lobbyId}
         }).catch(() => showError("Could not place bet."));
-        betModal.classList.add("hidden");
+        closeModal();
     });
 });

@@ -5,6 +5,8 @@ const fontSize = 16;
 const frameInterval = 65;
 let drops = [];
 let lastFrameTime = 0;
+let animationFrame = null;
+const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
 
 function resizeCanvas() {
     const pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
@@ -41,9 +43,17 @@ function animate(timestamp) {
         drawMatrix();
         lastFrameTime = timestamp;
     }
-    requestAnimationFrame(animate);
+    animationFrame = requestAnimationFrame(animate);
 }
 
+function updateAnimation() {
+    cancelAnimationFrame(animationFrame);
+    animationFrame = null;
+    if (!document.hidden && !reducedMotion.matches) animationFrame = requestAnimationFrame(animate);
+    else ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+}
 resizeCanvas();
-requestAnimationFrame(animate);
+updateAnimation();
+document.addEventListener("visibilitychange", updateAnimation);
+reducedMotion.addEventListener("change", updateAnimation);
 window.addEventListener("resize", resizeCanvas);
