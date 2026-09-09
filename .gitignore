@@ -3,3 +3,9 @@ users.sqlite
 users.sqlite-shm
 users.sqlite-wal
 .env
+
+.npm-cache/
+.playwright-browsers/
+playwright-report/
+test-results/
+*.backup
