@@ -1,43 +1,52 @@
-# Gambling API
+﻿# Gambling API
 
-A small multiplayer poker prototype using Express, WebSockets, SQLite, and a vanilla JavaScript frontend. Accounts start with 200 virtual chips.
+Multiplayer virtual-chip poker with Express, WebSockets, SQLite, and a vanilla JavaScript frontend. Accounts start with 200 chips. See [the rules](docs/RULES.md) for the ante-based variant.
 
 ## Run locally
 
-Use Node.js 24 (the version used for validation) and npm.
+Use Node.js 24 or newer.
 
-1. Run `npm install`.
-2. Copy `.env.example` to `.env` and replace `TOKEN_SECRET` with a generated secret. The generation command is in the example file.
-3. Run `npm start` and open <http://localhost:42069/login>.
-4. Register two accounts in separate browser profiles, create a lobby, join with the second account, and start the game as host.
+1. Run `npm ci`.
+2. Copy `.env.example` to `.env` and generate a random `TOKEN_SECRET` using the command in that file.
+3. Run `npm start` and visit <http://127.0.0.1:42069/login>.
+4. Register two accounts in separate browser profiles. Create a lobby, join with the other account, and start as host.
 
-`PORT` overrides the listening port. `DATABASE_PATH` overrides the default `users.sqlite` path. `AUTH_DEBUG=true` enables verbose authentication diagnostics. SQLite files and `.env` are ignored by Git.
+The default listener is `127.0.0.1:42069`. Configure `HOST`, `PORT`, and `DATABASE_PATH` as needed. For HTTPS proxies, set `PUBLIC_ORIGIN` and explicitly configure `TRUST_PROXY`; see [operations](docs/ARCHITECTURE.md).
 
 ## Commands
 
-- `npm start`: start the application.
-- `npm run dev`: restart on source changes.
-- `npm test`: syntax checks and Node regression tests.
-- `npm run check`: syntax checks only.
-- `npm run docs`: regenerate the HTTP OpenAPI document; browse `/swagger-ui` while the server is running.
+| Command | Purpose |
+| --- | --- |
+| `npm start` | Start the server |
+| `npm run dev` | Restart on source changes |
+| `npm test` | Syntax, contract freshness, unit/integration tests |
+| `npm run test:e2e` | Chromium two-player, mobile, reconnect, and process-crash tests |
+| `npm run docs` | Generate HTTP and WebSocket contracts |
+| `npm run audit:deps` | Check known dependency vulnerabilities |
+| `npm run migrate:legacy -- path/to/data.json` | Explicit transactional import; stop the server first |
 
-If the environment blocks test child processes, run `npm run check` followed by `node --test --test-isolation=none`. Tests use an in-memory database, a temporary listening port, and skip legacy data migration.
+Install Chromium before browser tests:
 
-## Current behavior
+```powershell
+$env:PLAYWRIGHT_BROWSERS_PATH = "$PWD/.playwright-browsers"
+npx playwright install chromium
+npm run test:e2e
+```
 
-Sessions last 30 minutes. Logging in replaces the previous session. HTTP clients can use the authorization cookie or `Authorization: Bearer <token>`; browser WebSockets use the cookie. Clients must wait for `auth:success` before sending messages.
+On Linux/macOS: `PLAYWRIGHT_BROWSERS_PATH="$PWD/.playwright-browsers" npx playwright install chromium`. CI installs system dependencies as well. The test runner uses no child-process isolation for unit tests, while browser/crash tests require process-launch permission. Tests use isolated in-memory or temporary databases and leave real accounts untouched.
 
-Lobbies hold at most 10 players, and each account may join one lobby at a time. Private lobbies are hidden from the public list but remain joinable by code. The host starts play. A round begins after a 30-second intermission. Each participating player pays a 10-chip ante; players below that amount spectate. There are four betting streets, best-five-of-seven hand evaluation, and contribution-based side pots. `hit` is the legacy protocol name for check/call. Turns time out after 30 seconds and automatically check/call. Disconnects have a 10-second grace period before leaving.
+## Persistence and upgrades
 
-This is a simplified poker variant: it does not yet enforce standard blinds or minimum-raise/reopening rules. Leaving folds the hand. Unclaimable contribution layers are returned to their contributors. See the audit for settlement edge cases still needing work.
+Accepted commands atomically store account deltas, escrow/table state, a ledger, and an idempotency record. `/balance` and the leaderboard show current spendable chips. Interrupted hands are refunded exactly once at startup; lobbies are then cleared. One process may own a database at a time.
 
-Account records persist in SQLite. Lobby and hand state live in memory and are lost on restart. Startup clears stale lobby references. Legacy `data.json` accounts are imported if present; the source is emptied after import, so back it up before migration.
+**Upgrading from the original version:** stop the server and back up the database/legacy JSON. Startup migrates the SQLite schema and makes an additional backup, preserves accounts and balances, and invalidates old sessions. Users must log in again. Legacy JSON imports are now explicit and never erase the source.
 
-## Project layout
+HTTP create/join/leave/start/action mutations now use POST and require a `requestId`. WebSocket mutation messages require the same ID and a lobbyId where relevant. External clients must update to [the new protocol](docs/PROTOCOL.md). Browser clients are updated.
 
-- `gambling.js`: HTTP routes, database access, authentication, lobby lifecycle, and poker state transitions.
-- `lib/poker.js`: pure hand evaluation, deck generation, and side-pot calculations.
-- `public/`: HTML, CSS, and browser scripts.
-- `test/`: poker and HTTP/WebSocket regression tests.
-- `swagger.js` / `swagger.json`: HTTP documentation generator and output.
-- [AUDIT.md](AUDIT.md): findings, completed fixes, and prioritized follow-up work.
+## Documentation
+
+- [AUDIT.md](AUDIT.md): completion map and validation evidence for all eight audit items.
+- [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md): module boundaries, transactions, migration, deployment, dependency policy.
+- [docs/RULES.md](docs/RULES.md): betting, all-ins, timeout, departure, and recovery rules.
+- [docs/PROTOCOL.md](docs/PROTOCOL.md): HTTP/WebSocket commands, errors, limits, and retry behavior.
+- `/swagger-ui`: interactive HTTP documentation while the server is running.

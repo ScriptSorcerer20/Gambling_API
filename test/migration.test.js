@@ -33,3 +33,23 @@ test('migration database failure rolls back every row and records no applied mar
     await assert.rejects(repo.transaction(tx=>tx.run('UPDATE users SET money = -1 WHERE username = ?', 'existing')));
     assert.equal((await repo.user('existing')).money,200);
 });
+const sqlite3 = require('sqlite3');
+const {open} = require('sqlite');
+test('existing schema upgrades preserve balances, revoke legacy tokens, and enforce a single owner', async t => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(),'gambling-schema-'));
+    t.after(()=>fs.rm(directory,{recursive:true,force:true}));
+    const filename=path.join(directory,'users.sqlite');
+    const legacy=await open({filename,driver:sqlite3.Database});
+    await legacy.exec("CREATE TABLE users(username TEXT PRIMARY KEY COLLATE NOCASE,password_hash TEXT NOT NULL,token TEXT,money INTEGER NOT NULL,lobby_id TEXT)");
+    await legacy.run('INSERT INTO users VALUES(?,?,?,?,?)','alice','unused-test-hash','old-token',123,'stale-lobby');
+    await legacy.close();
+    const repository=await createRepository(filename);
+    try {
+        assert.equal((await repository.user('alice')).money,123);
+        assert.equal((await repository.user('alice')).sessionHash,null);
+        assert.ok((await fs.readdir(directory)).some(name=>name.endsWith('.backup')));
+        await assert.rejects(createRepository(filename),/in use by process/);
+    } finally {await repository.close();}
+    const reopened=await createRepository(filename);
+    await reopened.close();
+});
