@@ -70,6 +70,17 @@ test('authentication is rate limited and cookies tolerate invalid escapes', asyn
     assert.equal(limited.status, 429); assert.ok(limited.headers.has('retry-after'));
     assert.equal(parseCookies('bad=%ZZ; authorization=ok').authorization, 'ok');
 });
+test('easter egg credits are server-authoritative and single-use except matrix color', async t => {
+    const {request} = await fixture(t);
+    const {token} = await (await request('/register', {method: 'POST', body: {username: 'agent42', password: 'password'}})).json();
+    const redeem = code => request('/easter-egg', {method: 'POST', token, body: {code}});
+    assert.deepEqual(await (await redeem('ILIKEMONEY')).json(), {balance: 1200, effect: 'credits'});
+    assert.equal((await redeem('ILIKEMONEY')).status, 409);
+    assert.deepEqual(await (await redeem('FRETUX')).json(), {balance: 2400, effect: 'credits'});
+    assert.deepEqual(await (await redeem('KRISHD')).json(), {balance: 12000, effect: 'credits'});
+    assert.equal((await redeem('LOSERNOOB')).status, 200);
+    assert.equal((await redeem('LOSERNOOB')).status, 200);
+});
 test('socket expires without waiting for a client message', async t => {
     const {api, base} = await fixture(t, {sessionSeconds: 1});
     const {token} = await api.sessions.register({username: 'alice', password: 'password'});

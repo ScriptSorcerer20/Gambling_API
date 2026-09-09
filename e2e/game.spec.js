@@ -54,3 +54,15 @@ test('login fits a narrow viewport and protected pages redirect',async({page})=>
     expect(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await expect(page.getByLabel('Username',{exact:true})).toBeVisible();
 });
+test('secret shortcut displays every staged cue', async ({page}) => {
+    await register(page, `cue-${Date.now()}`);
+    await page.keyboard.press('Alt');
+    await page.keyboard.press('j');
+    await expect(page.locator('#secret-cue')).toHaveText('J');
+    await page.keyboard.press('f');
+    await expect(page.locator('#secret-cue')).toHaveText('F');
+    await expect(page.locator('#secret-cue')).toHaveClass(/secret-cue-strong/);
+    await page.keyboard.press('k');
+    await expect(page.locator('#secret-cue')).toHaveText('K');
+    await expect(page.locator('#secret-flash')).toHaveClass(/secret-flash-active/);
+});

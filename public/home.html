@@ -10,23 +10,28 @@
 </head>
 <body>
 <canvas id="matrix-canvas"></canvas>
-<div class="leaderboard">
-    <h3>🏆 High Rollers</h3>
+<header class="app-header">
+    <a class="wordmark" href="/">GAMBLING <span>API</span></a>
+    <div class="header-status"><span class="status-dot"></span> TABLE NETWORK ONLINE</div>
+    <button class="logout" id="logout">Logout</button>
+</header>
+<main class="menu-shell">
+<aside class="leaderboard">
+    <p class="panel-label">Leaderboard</p>
+    <h3>HIGH ROLLERS</h3>
     <ul id="leaderboard-list">
         <li>Loading...</li>
     </ul>
     <div id="your-rank" class="your-rank"></div>
-</div>
-
-
-<button class="logout" id="logout">Logout</button>
-<div class="balance">
-    Balance: $<span id="balance">0</span>
-</div>
-<div class="lobby-buttons">
-    <button id="host">Host Lobby</button>
-    <button id="join">Join Lobby</button>
-</div>
+</aside>
+<section class="command-center">
+    <p class="panel-label">Operator console</p>
+    <h1><span id="easter-title" spellcheck="false">READY TO DEAL</span><span class="cursor">_</span></h1>
+    <div class="balance"><span>AVAILABLE CREDITS</span><strong>$<span id="balance">0</span></strong></div>
+    <div class="lobby-buttons">
+        <button id="host">Host Lobby</button>
+        <button id="join" class="secondary-action">Join Lobby</button>
+    </div>
 <div id="host-form" class="host-form hidden">
     <div class="lobby-visibility" aria-label="Lobby visibility">
         <label>
@@ -65,6 +70,8 @@
     </div>
     <button id="start-game" class="start-game hidden" disabled>Start Game</button>
 </div>
+</section>
+</main>
 </body>
 <script src="protocol.js"></script>
 <script src="client.js"></script>

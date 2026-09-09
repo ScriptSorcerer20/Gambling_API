@@ -25,7 +25,7 @@ function resizeCanvas() {
 function drawMatrix() {
     ctx.fillStyle = "rgba(0, 0, 0, 0.2)";
     ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
-    ctx.fillStyle = "#39FF14";
+    ctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--matrix-rain").trim() || "#39FF14";
     ctx.font = fontSize + "px monospace";
 
     for (let i = 0; i < drops.length; i++) {

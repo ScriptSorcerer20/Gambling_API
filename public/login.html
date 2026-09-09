@@ -9,19 +9,31 @@
     <link rel="icon" href="gambling.png" type="image/x-icon">
 </head>
 <body>
-<h1>Login / Register</h1>
-<form method="post" action="/login">
-    <label for="username">Username</label>
-    <input id="username" type="text" name="username" placeholder="Username" autocomplete="username" maxlength="40" required>
-    <label for="password">Password</label>
-    <input id="password" type="password" name="password" placeholder="Password" autocomplete="current-password" required aria-describedby="password-hint">
-    <small id="password-hint">Passwords support up to 72 UTF-8 bytes.</small>
-    <div class="auth-actions">
-        <button type="submit" id="login-button">Login</button>
-        <button type="button" id="register-button">Register</button>
-    </div>
-    <p id="auth-error" role="alert" aria-live="polite" class="auth-error hidden"></p>
-</form>
+<main class="auth-shell">
+    <section class="auth-intro" aria-label="Gambling API introduction">
+        <p class="eyebrow">secure terminal // v1.0</p>
+        <h1>GAMBLING<br><span>API</span></h1>
+        <p class="intro-copy">Multiplayer poker, virtual chips, and a live table connection.</p>
+        <ul class="intro-status"><li>● ENCRYPTED SESSION</li><li>● LIVE TABLES</li><li>● VIRTUAL CREDITS</li></ul>
+    </section>
+    <section class="auth-panel" aria-labelledby="auth-title">
+        <div class="panel-chrome"><span>AUTHENTICATE</span><span>● ● ●</span></div>
+        <h2 id="auth-title">Access your account</h2>
+        <p class="panel-copy">Sign in to return to your table, or register a new operator account.</p>
+        <form method="post" action="/login">
+            <label for="username">Username</label>
+            <input id="username" type="text" name="username" placeholder="operator-name" autocomplete="username" maxlength="40" required>
+            <label for="password">Password</label>
+            <input id="password" type="password" name="password" placeholder="••••••••••••" autocomplete="current-password" required aria-describedby="password-hint">
+            <small id="password-hint">Password limit: 72 UTF-8 bytes.</small>
+            <div class="auth-actions">
+                <button type="submit" id="login-button">Sign in</button>
+                <button type="button" id="register-button" class="secondary-action">Register</button>
+            </div>
+            <p id="auth-error" role="alert" aria-live="polite" class="auth-error hidden"></p>
+        </form>
+    </section>
+</main>
 </body>
 <script src="frontend_login.js"></script>
 </html>

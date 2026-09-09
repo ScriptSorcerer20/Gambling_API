@@ -2,7 +2,84 @@
     const byId = id => document.getElementById(id);
     const client = new RealtimeClient();
     let username; let lobbyId;
+    const easterTitle = byId('easter-title');
+    let easterStage = 0;
+    let easterSequenceTimer = null;
+    let easterOpen = false;
+    let easterPending = false;
+    const secretCue = document.createElement('div');
+    secretCue.id = 'secret-cue';
+    secretCue.className = 'secret-cue';
+    secretCue.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(secretCue);
+    const secretFlash = document.createElement('div');
+    secretFlash.id = 'secret-flash';
+    secretFlash.className = 'secret-flash';
+    secretFlash.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(secretFlash);
     const error = message => {byId('join-error').textContent = message; byId('join-error').classList.toggle('hidden', !message);};
+    const matrixColor = () => `hsl(${Math.floor(Math.random() * 360)} 100% 62%)`;
+    const unlockEasterTitle = () => {
+        easterOpen = true;
+        easterTitle.contentEditable = 'true';
+        easterTitle.classList.add('easter-open');
+        easterTitle.focus();
+        document.getSelection()?.selectAllChildren(easterTitle);
+    };
+    const cueSecret = (letter, strength = 'soft') => {
+        document.body.classList.remove('secret-shake', 'secret-shake-strong');
+        void document.body.offsetWidth;
+        document.body.classList.add(strength === 'soft' ? 'secret-shake' : 'secret-shake-strong');
+        if (!letter) return;
+        secretCue.textContent = letter;
+        secretCue.className = 'secret-cue';
+        void secretCue.offsetWidth;
+        secretCue.className = `secret-cue secret-cue-${strength}`;
+    };
+    const flashSecret = () => {
+        cueSecret('K', 'strong');
+        document.body.classList.remove('secret-shake-strong');
+        void document.body.offsetWidth;
+        document.body.classList.add('secret-shake-strong');
+        secretFlash.classList.remove('secret-flash-active');
+        void secretFlash.offsetWidth;
+        secretFlash.classList.add('secret-flash-active');
+    };
+    const armEasterSequence = (resetStage = true) => {
+        if (resetStage) easterStage = 0;
+        clearTimeout(easterSequenceTimer);
+        easterSequenceTimer = setTimeout(() => {easterStage = 0;}, 10000);
+    };
+    const redeemEasterTitle = async () => {
+        if (easterPending) return;
+        const code = easterTitle.textContent.trim().toUpperCase();
+        easterTitle.textContent = 'READY TO DEAL';
+        easterTitle.contentEditable = 'false';
+        easterTitle.classList.remove('easter-open');
+        easterOpen = false;
+        if (!['ILIKEMONEY', 'FRETUX', 'KRISHD', 'LOSERNOOB'].includes(code)) return;
+        easterPending = true;
+        try {
+            const result = await apiRequest('/easter-egg', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({code})});
+            if (result.effect === 'matrix') {
+                document.documentElement.style.setProperty('--matrix-rain', matrixColor());
+                error('Matrix stream randomized.');
+            } else {
+                byId('balance').textContent = result.balance;
+                error('Terminal command accepted.');
+            }
+        } catch (problem) {error(problem.message);}
+        finally {easterPending = false;}
+    };
+    document.addEventListener('keydown', event => {
+        if (easterOpen || event.repeat) return;
+        if (event.code === 'AltLeft' || event.code === 'AltRight') {armEasterSequence(); cueSecret('', 'soft'); return;}
+        if (easterStage === 0 && event.code === 'KeyJ') {easterStage = 1; armEasterSequence(false); cueSecret('J', 'medium'); return;}
+        if (easterStage === 1 && event.code === 'KeyF') {easterStage = 2; armEasterSequence(false); cueSecret('F', 'strong'); return;}
+        if (easterStage === 2 && event.code === 'KeyK') {event.preventDefault(); clearTimeout(easterSequenceTimer); flashSecret(); unlockEasterTitle(); easterStage = 0; return;}
+        if (easterStage) armEasterSequence();
+    });
+    easterTitle.addEventListener('keydown', event => { if (event.key === 'Enter') {event.preventDefault(); redeemEasterTitle();} });
     const send = async message => {try {error(''); await client.send(message);} catch (problem) {error(problem.message);}};
     const hideLobby = () => {
         lobbyId = null; localStorage.removeItem('activeLobbyId'); byId('lobby-room').classList.add('hidden');
