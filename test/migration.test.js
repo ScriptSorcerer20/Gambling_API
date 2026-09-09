@@ -1,0 +1,35 @@
+﻿const {test} = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs/promises');
+const os = require('node:os');
+const path = require('node:path');
+const {createRepository} = require('../lib/repository');
+const {migrateLegacy} = require('../scripts/migrate-legacy');
+test('legacy import validates all rows, backs up source, and is idempotent', async t => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(),'gambling-migration-'));
+    t.after(()=>fs.rm(directory,{recursive:true,force:true}));
+    const file = path.join(directory,'data.json');
+    const repo = await createRepository(':memory:'); t.after(()=>repo.close());
+    const source = JSON.stringify([{username:' Alice ',password:'password',money:123},{username:'bob',password:'password',money:200}]);
+    await fs.writeFile(file,source);
+    const result = await migrateLegacy(repo,file,4);
+    assert.equal(result.imported,2); assert.equal(await fs.readFile(result.backup,'utf8'),source);
+    assert.equal(await fs.readFile(file,'utf8'),source);
+    assert.equal((await migrateLegacy(repo,file,4)).alreadyApplied,true);
+    assert.equal((await repo.user('alice')).money,123);
+    await fs.writeFile(file,JSON.stringify([{username:'valid',password:'password'},{username:'invalid',password:'password',money:-1}]));
+    await assert.rejects(migrateLegacy(repo,file,4),/Invalid legacy balance/);
+    assert.equal(await repo.user('valid'),undefined);
+});
+test('migration database failure rolls back every row and records no applied marker', async t => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(),'gambling-migration-'));
+    t.after(()=>fs.rm(directory,{recursive:true,force:true}));
+    const file=path.join(directory,'data.json');
+    const repo=await createRepository(':memory:'); t.after(()=>repo.close());
+    await repo.register('existing','unused',null);
+    await fs.writeFile(file,JSON.stringify([{username:'new-user',password:'password'},{username:'existing',password:'password'}]));
+    await assert.rejects(migrateLegacy(repo,file,4),/already exists/);
+    assert.equal(await repo.user('new-user'),undefined);
+    await assert.rejects(repo.transaction(tx=>tx.run('UPDATE users SET money = -1 WHERE username = ?', 'existing')));
+    assert.equal((await repo.user('existing')).money,200);
+});

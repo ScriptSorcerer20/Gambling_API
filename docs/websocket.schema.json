@@ -1,0 +1,654 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "WebSocket protocol",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": [
+        "type",
+        "requestId"
+      ],
+      "properties": {
+        "type": {
+          "const": "lobby:create"
+        },
+        "requestId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]{8,128}$"
+        },
+        "private": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "type",
+        "lobbyId",
+        "requestId"
+      ],
+      "properties": {
+        "type": {
+          "const": "lobby:join"
+        },
+        "lobbyId": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{16}$"
+        },
+        "requestId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]{8,128}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "type",
+        "lobbyId",
+        "requestId"
+      ],
+      "properties": {
+        "type": {
+          "const": "lobby:leave"
+        },
+        "lobbyId": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{16}$"
+        },
+        "requestId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]{8,128}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "type",
+        "lobbyId",
+        "requestId"
+      ],
+      "properties": {
+        "type": {
+          "const": "poker:start"
+        },
+        "lobbyId": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{16}$"
+        },
+        "requestId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]{8,128}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "type",
+        "lobbyId"
+      ],
+      "properties": {
+        "type": {
+          "const": "poker:join"
+        },
+        "lobbyId": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{16}$"
+        }
+      },
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "required": [
+        "type",
+        "lobbyId",
+        "requestId",
+        "action"
+      ],
+      "properties": {
+        "type": {
+          "const": "poker:action"
+        },
+        "lobbyId": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{16}$"
+        },
+        "requestId": {
+          "type": "string",
+          "pattern": "^[a-zA-Z0-9_-]{8,128}$"
+        },
+        "action": {
+          "enum": [
+            "hit",
+            "fold",
+            "bet"
+          ]
+        },
+        "payload": {
+          "type": "object",
+          "properties": {
+            "amount": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 9007199254740991
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  ],
+  "$defs": {
+    "auth:success": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "auth:success"
+        },
+        "username": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "username"
+      ],
+      "additionalProperties": false
+    },
+    "command:ack": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "command:ack"
+        },
+        "commandType": {
+          "type": "string"
+        },
+        "lobbyId": {
+          "type": "string"
+        },
+        "username": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "commandType",
+        "lobbyId",
+        "username",
+        "requestId"
+      ],
+      "additionalProperties": false
+    },
+    "error": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "error"
+        },
+        "code": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        },
+        "requestId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "code",
+        "message"
+      ],
+      "additionalProperties": false
+    },
+    "lobby:left": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "lobby:left"
+        },
+        "lobbyId": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "lobbyId"
+      ],
+      "additionalProperties": false
+    },
+    "lobby:state": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "lobby:state"
+        },
+        "lobbyId": {
+          "type": "string"
+        },
+        "host": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "players": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "isPublic": {
+          "type": "boolean"
+        },
+        "canStart": {
+          "type": "boolean"
+        },
+        "gameStarted": {
+          "type": "boolean"
+        },
+        "gameUrl": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "type",
+        "lobbyId",
+        "host",
+        "players",
+        "isPublic",
+        "canStart",
+        "gameStarted",
+        "gameUrl"
+      ],
+      "additionalProperties": false
+    },
+    "poker:state": {
+      "type": "object",
+      "properties": {
+        "type": {
+          "const": "poker:state"
+        },
+        "lobbyId": {
+          "type": "string"
+        },
+        "username": {
+          "type": "string"
+        },
+        "players": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "round": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "pot": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "currentBet": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "bet": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "communityCards": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "rank": {
+                "enum": [
+                  "A",
+                  "K",
+                  "Q",
+                  "J",
+                  "10",
+                  "9",
+                  "8",
+                  "7",
+                  "6",
+                  "5",
+                  "4",
+                  "3",
+                  "2"
+                ]
+              },
+              "suit": {
+                "enum": [
+                  "S",
+                  "H",
+                  "D",
+                  "C"
+                ]
+              }
+            },
+            "required": [
+              "rank",
+              "suit"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "hand": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "rank": {
+                "enum": [
+                  "A",
+                  "K",
+                  "Q",
+                  "J",
+                  "10",
+                  "9",
+                  "8",
+                  "7",
+                  "6",
+                  "5",
+                  "4",
+                  "3",
+                  "2"
+                ]
+              },
+              "suit": {
+                "enum": [
+                  "S",
+                  "H",
+                  "D",
+                  "C"
+                ]
+              }
+            },
+            "required": [
+              "rank",
+              "suit"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "currentPlayer": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "isYourTurn": {
+          "type": "boolean"
+        },
+        "queue": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "folded": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "boolean"
+          }
+        },
+        "street": {
+          "enum": [
+            "intermission",
+            "preflop",
+            "flop",
+            "turn",
+            "river"
+          ]
+        },
+        "phase": {
+          "enum": [
+            "intermission",
+            "waiting",
+            "betting"
+          ]
+        },
+        "lastAction": {
+          "type": "string"
+        },
+        "yourContribution": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "yourStack": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "isSpectator": {
+          "type": "boolean"
+        },
+        "callAmount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "minimumStake": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "minimumRaise": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "canRaise": {
+          "type": "boolean"
+        },
+        "nextRoundStartsAt": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "turnEndsAt": {
+          "type": [
+            "integer",
+            "null"
+          ]
+        },
+        "winner": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "showdown": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "player": {
+                    "type": "string"
+                  },
+                  "hand": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "rank": {
+                          "enum": [
+                            "A",
+                            "K",
+                            "Q",
+                            "J",
+                            "10",
+                            "9",
+                            "8",
+                            "7",
+                            "6",
+                            "5",
+                            "4",
+                            "3",
+                            "2"
+                          ]
+                        },
+                        "suit": {
+                          "enum": [
+                            "S",
+                            "H",
+                            "D",
+                            "C"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "rank",
+                        "suit"
+                      ],
+                      "additionalProperties": false
+                    }
+                  },
+                  "result": {
+                    "type": "object",
+                    "properties": {
+                      "rank": {
+                        "type": "integer",
+                        "minimum": 0,
+                        "maximum": 9007199254740991
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "score": {
+                        "type": "array",
+                        "items": {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 9007199254740991
+                        }
+                      },
+                      "comboCards": {
+                        "type": "array",
+                        "items": {
+                          "type": "object",
+                          "properties": {
+                            "rank": {
+                              "enum": [
+                                "A",
+                                "K",
+                                "Q",
+                                "J",
+                                "10",
+                                "9",
+                                "8",
+                                "7",
+                                "6",
+                                "5",
+                                "4",
+                                "3",
+                                "2"
+                              ]
+                            },
+                            "suit": {
+                              "enum": [
+                                "S",
+                                "H",
+                                "D",
+                                "C"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "rank",
+                            "suit"
+                          ],
+                          "additionalProperties": false
+                        }
+                      }
+                    },
+                    "required": [
+                      "rank",
+                      "name",
+                      "score",
+                      "comboCards"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [
+                  "player",
+                  "hand",
+                  "result"
+                ],
+                "additionalProperties": false
+              }
+            }
+          ]
+        },
+        "payouts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        }
+      },
+      "required": [
+        "type",
+        "lobbyId",
+        "username",
+        "players",
+        "round",
+        "pot",
+        "currentBet",
+        "bet",
+        "communityCards",
+        "hand",
+        "currentPlayer",
+        "isYourTurn",
+        "queue",
+        "folded",
+        "street",
+        "phase",
+        "lastAction",
+        "yourContribution",
+        "yourStack",
+        "isSpectator",
+        "callAmount",
+        "minimumStake",
+        "minimumRaise",
+        "canRaise",
+        "nextRoundStartsAt",
+        "turnEndsAt",
+        "winner",
+        "showdown",
+        "payouts"
+      ],
+      "additionalProperties": false
+    }
+  }
+}
