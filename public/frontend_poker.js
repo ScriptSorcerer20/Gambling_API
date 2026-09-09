@@ -29,9 +29,8 @@ document.addEventListener("DOMContentLoaded", () => {
     let socket = null;
     let socketReady = null;
     let isYourTurn = false;
-    let canLeaveTable = true;
     let isSpectator = false;
-    let currentStackValue = 400;
+    let currentStackValue = 0;
     let minimumStake = 10;
     let callAmount = 0;
     let countdownTimer = null;
@@ -129,6 +128,7 @@ document.addEventListener("DOMContentLoaded", () => {
         actionButtons.forEach((button) => {
             button.disabled = !isYourTurn || isSpectator;
             if (button.dataset.action === "hit") {
+                button.textContent = callAmount > 0 ? "Call" : "Check";
                 button.title = callAmount > 0
                     ? `Call with $${Math.min(callAmount, currentStackValue)}.`
                     : actionTooltips.hit;
@@ -178,7 +178,7 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     const connectSocket = () => {
-        if (socket && socket.readyState === WebSocket.OPEN) {
+        if (socket && socket.readyState === WebSocket.OPEN && socket.authenticated) {
             return Promise.resolve(socket);
         }
 
@@ -190,7 +190,16 @@ document.addEventListener("DOMContentLoaded", () => {
         socket = new WebSocket(`${protocol}//${window.location.host}`);
 
         socketReady = new Promise((resolve, reject) => {
-            socket.addEventListener("open", () => resolve(socket), {once: true});
+            socket.addEventListener("message", (event) => {
+                const message = JSON.parse(event.data);
+                if (message.type === "auth:success") {
+                    socket.authenticated = true;
+                    resolve(socket);
+                } else {
+                    reject(new Error(message.message || "Authentication failed"));
+                }
+            }, {once: true});
+            socket.addEventListener("close", () => reject(new Error("Connection closed")), {once: true});
             socket.addEventListener("error", () => reject(new Error("WebSocket connection failed")), {once: true});
         });
 
@@ -200,7 +209,6 @@ document.addEventListener("DOMContentLoaded", () => {
             if (message.type === "poker:state") {
                 hideError();
                 isYourTurn = Boolean(message.isYourTurn);
-                canLeaveTable = Boolean(message.canLeaveTable);
                 isSpectator = Boolean(message.isSpectator);
                 currentStackValue = Number(message.yourStack ?? 0);
                 minimumStake = Number(message.minimumStake || 10);
@@ -252,6 +260,10 @@ document.addEventListener("DOMContentLoaded", () => {
         });
 
         socket.addEventListener("close", () => {
+            isYourTurn = false;
+            stopCountdown();
+            updateActionButtons();
+            showError("Connection lost. Reload to reconnect to the table.");
             socket = null;
             socketReady = null;
         });
@@ -271,7 +283,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const minBet = maxBet > 0 ? Math.min(requiredBet, maxBet) : 0;
         betRange.min = String(minBet);
         betRange.max = String(maxBet);
-        betRange.step = String(minimumStake);
+        betRange.step = "1";
         setBetValue(Math.max(minBet, Number(betRange.value) || minBet));
     };
 

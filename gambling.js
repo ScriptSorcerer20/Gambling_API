@@ -1,3 +1,4 @@
+const {createDeck, compareScores, evaluateBestHand, calculatePayouts} = require("./lib/poker");
 const express = require("express");
 const app = express();
 const http = require("http");
@@ -8,7 +9,7 @@ const path = require("path");
 app.use(express.static(path.join(__dirname, "public")));
 const fs = require("fs/promises");
 const crypto = require("crypto");
-const dotenv = require("dotenv").config();
+require("dotenv").config();
 const jwt = require("jsonwebtoken");
 const cookieParser = require("cookie-parser");
 const bcrypt = require("bcrypt");
@@ -16,7 +17,7 @@ const sqlite3 = require("sqlite3");
 const {open} = require("sqlite");
 const port = process.env.PORT || 42069;
 const server = http.createServer(app);
-const wss = new WebSocketServer({server});
+const wss = new WebSocketServer({server, maxPayload: 16 * 1024});
 let db;
 const authCookieOptions = {
     httpOnly: true,
@@ -33,13 +34,14 @@ function logAuthEvent(level, message, details = {}) {
     const safeDetails = Object.entries(details).reduce((result, [key, value]) => {
         if (value !== undefined) result[key] = value;
         return result;
-    }, {});
+    }, Object.create(null));
+    if (process.env.AUTH_DEBUG !== "true") return;
     const logger = console[level] || console.log;
     logger(`[auth] ${message}`, safeDetails);
 }
 
 function getTokenLogDetails(token) {
-    if (!token) {
+    if (typeof token !== "string" || !token) {
         return {
             present: false
         };
@@ -51,8 +53,8 @@ function getTokenLogDetails(token) {
         fingerprint: crypto.createHash("sha256").update(token).digest("hex").slice(0, 12),
         length: token.length,
         subject: decoded.username,
-        issuedAt: decoded.iat ? new Date(decoded.iat * 1000).toISOString() : undefined,
-        expiresAt: decoded.exp ? new Date(decoded.exp * 1000).toISOString() : undefined
+        issuedAt: decoded.iat ? String(decoded.iat) : undefined,
+        expiresAt: decoded.exp ? String(decoded.exp) : undefined
     };
 }
 
@@ -86,9 +88,9 @@ function getAuthCookieOptions(request) {
     Here are Helper function  -----------------------------------------------------------------------------------------------
  */
 
-async function initializeDatabase() {
+async function initializeDatabase({migrate = true} = {}) {
     db = await open({
-        filename: path.join(__dirname, "users.sqlite"),
+        filename: process.env.DATABASE_PATH || path.join(__dirname, "users.sqlite"),
         driver: sqlite3.Database
     });
 
@@ -102,7 +104,8 @@ async function initializeDatabase() {
         )
     `);
 
-    await migrateJsonUsers();
+    if (migrate) await migrateJsonUsers();
+    await db.run("UPDATE users SET lobby_id = NULL");
 }
 
 async function migrateJsonUsers() {
@@ -177,7 +180,7 @@ async function setUserMoney(username, money) {
 
 function generateAccessToken(user) {
     logAuthEvent("info", "Generating access token", {username: user.username});
-    const token = jwt.sign(user, process.env.TOKEN_SECRET, {expiresIn: "1800s"});
+    const token = jwt.sign(user, process.env.TOKEN_SECRET, {expiresIn: "1800s", jwtid: crypto.randomUUID()});
     logAuthEvent("info", "Generated access token", {
         username: user.username,
         token: getTokenLogDetails(token)
@@ -202,7 +205,7 @@ function normalizeUsername(username) {
 }
 
 function isValidPassword(password) {
-    return typeof password === "string" && password.length > 0;
+    return typeof password === "string" && password.length > 0 && Buffer.byteLength(password, "utf8") <= 72;
 }
 
 function parseCookieHeader(cookieHeader = "") {
@@ -210,10 +213,11 @@ function parseCookieHeader(cookieHeader = "") {
         const separatorIndex = cookie.indexOf("=");
         if (separatorIndex === -1) return cookies;
         const key = cookie.slice(0, separatorIndex).trim();
-        const value = decodeURIComponent(cookie.slice(separatorIndex + 1).trim());
+        let value;
+        try { value = decodeURIComponent(cookie.slice(separatorIndex + 1).trim()); } catch { return cookies; }
         cookies[key] = value;
         return cookies;
-    }, {});
+    }, Object.create(null));
 }
 
 function getAuthTokenFromRequest(request) {
@@ -221,7 +225,7 @@ function getAuthTokenFromRequest(request) {
 }
 
 async function verifyAuthToken(token) {
-    if (!token) {
+    if (typeof token !== "string" || !token) {
         logAuthEvent("warn", "Token verification skipped because token is missing");
         return null;
     }
@@ -298,19 +302,19 @@ async function authenticateToken(request, response, next) {
  */
 
 app.post("/register", async (request, response) => {
-    let {username, password} = request.body;
+    let {username, password} = request.body || {};
     logAuthEvent("info", "Register request received", {
         ...getAuthRequestDetails(request),
         username: normalizeUsername(username),
         hasPassword: isValidPassword(password)
     });
     username = normalizeUsername(username);
-    if (!username || !isValidPassword(password)) {
+    if (!username || username.length > 40 || !isValidPassword(password)) {
         logAuthEvent("warn", "Register request rejected because credentials are incomplete", {
             username,
             hasPassword: isValidPassword(password)
         });
-        return response.status(400).json({error: "Username and password are required"});
+        return response.status(400).json({error: "Username (1-40 characters) and password (1-72 bytes) are required"});
     }
     const existingUser = await findUserByUsername(username);
     if (existingUser) {
@@ -318,7 +322,12 @@ app.post("/register", async (request, response) => {
         return response.status(400).json({error: "Username already exists"});
     }
     const token = generateAccessToken({username});
-    await saveUser({username, password, token, money: 200});
+    try {
+        await saveUser({username, password, token, money: 200});
+    } catch (error) {
+        if (error.code === "SQLITE_CONSTRAINT") return response.status(409).json({error: "Username already exists"});
+        throw error;
+    }
     logAuthEvent("info", "Registered user and stored initial token", {
         username,
         token: getTokenLogDetails(token)
@@ -353,19 +362,19 @@ app.get("/login", (request, response) => {
 })
 
 app.post("/login", async (request, response) => {
-    let {username, password} = request.body;
+    let {username, password} = request.body || {};
     logAuthEvent("info", "Login request received", {
         ...getAuthRequestDetails(request),
         username: normalizeUsername(username),
         hasPassword: isValidPassword(password)
     });
     username = normalizeUsername(username);
-    if (!username || !isValidPassword(password)) {
+    if (!username || username.length > 40 || !isValidPassword(password)) {
         logAuthEvent("warn", "Login request rejected because credentials are incomplete", {
             username,
             hasPassword: isValidPassword(password)
         });
-        return response.status(400).json({error: "Username and password are required"});
+        return response.status(400).json({error: "Username (1-40 characters) and password (1-72 bytes) are required"});
     }
     const user = await findUserByUsername(username);
     if (!user) {
@@ -379,7 +388,7 @@ app.post("/login", async (request, response) => {
     const passwordMatches = await bcrypt.compare(password, user.passwordHash);
     if (!passwordMatches) {
         logAuthEvent("warn", "Login request rejected because password did not match", {username});
-        return response.status(401).json({error: "Invalid password"});
+        return response.status(401).json({error: "Invalid credentials"});
     }
     logAuthEvent("info", "Login password matched", {username});
     const token = generateAccessToken({username});
@@ -464,30 +473,18 @@ app.delete("/logout", authenticateToken, async (request, response) => {
     response.json({message: "Logged out successfully."});
 });
 
-const playerMap = {};
-const lobbySockets = {};
-const lobbyHosts = {};
-const lobbyPrivacy = {};
-const pokerGames = {};
-const disconnectTimers = {};
+const playerMap = Object.create(null);
+const lobbySockets = Object.create(null);
+const lobbyHosts = Object.create(null);
+const lobbyPrivacy = Object.create(null);
+const pokerGames = Object.create(null);
+const disconnectTimers = Object.create(null);
+const startingLobbies = new Map();
 const ROUND_INTERMISSION_MS = 30000;
 const TURN_TIMEOUT_MS = 30000;
 const DISCONNECT_GRACE_MS = 10000;
 const MINIMUM_STAKE = 10;
 const STARTING_STACK = 200;
-
-const cardSuits = ["S", "H", "D", "C"];
-const cardRanks = ["A", "K", "Q", "J", "10", "9", "8", "7", "6", "5", "4", "3", "2"];
-
-function createPlaceholderDeck() {
-    const deck = [];
-    for (const suit of cardSuits) {
-        for (const rank of cardRanks) {
-            deck.push({rank, suit});
-        }
-    }
-    return deck.sort(() => Math.random() - 0.5);
-}
 
 async function getInitialPokerStack(player, previousStacks = {}) {
     if (Number.isFinite(previousStacks[player])) {
@@ -502,17 +499,17 @@ async function persistPokerStacks(game) {
 }
 
 async function createPokerGame(lobbyId) {
-    const players = playerMap[lobbyId] || [];
+    const players = [...(playerMap[lobbyId] || [])];
     const existingGame = pokerGames[lobbyId];
     if (existingGame?.nextRoundTimer) {
         clearTimeout(existingGame.nextRoundTimer);
     }
-    const roundNumber = existingGame ? existingGame.round + 1 : 1;
+    const roundNumber = existingGame ? existingGame.round + (existingGame.phase === "intermission" ? 0 : 1) : 1;
     const previousStacks = existingGame?.stacks || {};
     const dealerIndex = existingGame
         ? (existingGame.dealerIndex + 1) % Math.max(players.length, 1)
         : 0;
-    const stacks = {};
+    const stacks = Object.create(null);
     const playersWithChips = [];
 
     for (const player of players) {
@@ -523,12 +520,12 @@ async function createPokerGame(lobbyId) {
     }
     const activePlayers = playersWithChips.length >= 2 ? playersWithChips : [];
 
-    const deck = createPlaceholderDeck();
-    const hands = {};
-    const folded = {};
-    const acted = {};
-    const contributions = {};
-    const playerBets = {};
+    const deck = createDeck();
+    const hands = Object.create(null);
+    const folded = Object.create(null);
+    const acted = Object.create(null);
+    const contributions = Object.create(null);
+    const playerBets = Object.create(null);
     let pot = 0;
 
     for (const player of activePlayers) {
@@ -570,7 +567,7 @@ async function createPokerGame(lobbyId) {
         playerBets,
         stacks,
         currentPlayerIndex: activePlayers.length >= 2
-            ? getFirstActiveLeftOfDealer({players, folded, dealerIndex})
+            ? getFirstActiveLeftOfDealer({players, folded, hands, stacks, dealerIndex})
             : -1,
         lastAction: activePlayers.length >= 2
             ? `Round ${roundNumber} started. $${MINIMUM_STAKE} minimum stake paid by each player.`
@@ -587,24 +584,35 @@ async function createPokerGame(lobbyId) {
         minimumStake: MINIMUM_STAKE
     };
 
-    startTurnTimer(pokerGames[lobbyId]);
+    if (activePlayers.length >= 2 && pokerGames[lobbyId].currentPlayerIndex === -1) {
+        revealNextStreet(pokerGames[lobbyId]);
+    } else {
+        startTurnTimer(pokerGames[lobbyId]);
+    }
     return pokerGames[lobbyId];
 }
 
-async function createPokerIntermission(lobbyId) {
-    const players = playerMap[lobbyId] || [];
+function createPokerIntermission(lobbyId) {
+    if (startingLobbies.has(lobbyId)) return startingLobbies.get(lobbyId);
+    const pending = initializePokerIntermission(lobbyId).finally(() => startingLobbies.delete(lobbyId));
+    startingLobbies.set(lobbyId, pending);
+    return pending;
+}
+
+async function initializePokerIntermission(lobbyId) {
+    const players = [...(playerMap[lobbyId] || [])];
     const existingGame = pokerGames[lobbyId];
     if (existingGame?.nextRoundTimer) {
         clearTimeout(existingGame.nextRoundTimer);
     }
 
-    const roundNumber = existingGame ? existingGame.round + 1 : 1;
+    const roundNumber = existingGame ? existingGame.round + (existingGame.phase === "intermission" ? 0 : 1) : 1;
     const previousStacks = existingGame?.stacks || {};
-    const stacks = {};
-    const folded = {};
-    const acted = {};
-    const contributions = {};
-    const playerBets = {};
+    const stacks = Object.create(null);
+    const folded = Object.create(null);
+    const acted = Object.create(null);
+    const contributions = Object.create(null);
+    const playerBets = Object.create(null);
 
     for (const player of players) {
         stacks[player] = await getInitialPokerStack(player, previousStacks);
@@ -631,7 +639,7 @@ async function createPokerIntermission(lobbyId) {
         bet: 0,
         dealerIndex: existingGame?.dealerIndex ?? 0,
         communityCards: [],
-        hands: {},
+        hands: Object.create(null),
         folded,
         acted,
         contributions,
@@ -654,9 +662,13 @@ async function createPokerIntermission(lobbyId) {
     pokerGames[lobbyId] = intermission;
     intermission.nextRoundTimer = setTimeout(async () => {
         if (!pokerGames[lobbyId] || !playerMap[lobbyId]?.length) return;
-        await createPokerGame(lobbyId);
-        broadcastLobby(lobbyId);
-        broadcastPokerState(lobbyId);
+        try {
+            await createPokerGame(lobbyId);
+            broadcastLobby(lobbyId);
+            broadcastPokerState(lobbyId);
+        } catch (error) {
+            console.error("Failed to start next round:", error);
+        }
     }, ROUND_INTERMISSION_MS);
 
     return intermission;
@@ -779,7 +791,7 @@ async function completeRoundWithWinner(game, winner) {
 
 async function scheduleNextRound(game) {
     clearTurnTimer(game);
-    if (game.nextRoundTimer || !pokerGames[game.lobbyId]) return;
+    if (game.nextRoundTimer || pokerGames[game.lobbyId] !== game) return;
 
     await createPokerIntermission(game.lobbyId);
     broadcastLobby(game.lobbyId);
@@ -868,112 +880,6 @@ function advanceTurn(game) {
     }
 }
 
-function getRankValue(rank) {
-    return {A: 14, K: 13, Q: 12, J: 11, "10": 10, "9": 9, "8": 8, "7": 7, "6": 6, "5": 5, "4": 4, "3": 3, "2": 2}[rank] || 0;
-}
-
-function getCombinations(cards, size, start = 0, current = [], result = []) {
-    if (current.length === size) {
-        result.push([...current]);
-        return result;
-    }
-
-    for (let index = start; index < cards.length; index++) {
-        current.push(cards[index]);
-        getCombinations(cards, size, index + 1, current, result);
-        current.pop();
-    }
-    return result;
-}
-
-function compareScores(a, b) {
-    for (let index = 0; index < Math.max(a.length, b.length); index++) {
-        const diff = (a[index] || 0) - (b[index] || 0);
-        if (diff !== 0) return diff;
-    }
-    return 0;
-}
-
-function evaluateFiveCardHand(cards) {
-    const values = cards.map(card => getRankValue(card.rank)).sort((a, b) => b - a);
-    const suits = cards.map(card => card.suit);
-    const isFlush = suits.every(suit => suit === suits[0]);
-    const uniqueValues = [...new Set(values)].sort((a, b) => b - a);
-    const straightValues = uniqueValues.includes(14)
-        ? [...uniqueValues, 1]
-        : uniqueValues;
-    let straightHigh = 0;
-
-    for (let index = 0; index <= straightValues.length - 5; index++) {
-        const run = straightValues.slice(index, index + 5);
-        if (run[0] - run[4] === 4) {
-            straightHigh = run[0];
-            break;
-        }
-    }
-
-    const counts = values.reduce((acc, value) => {
-        acc[value] = (acc[value] || 0) + 1;
-        return acc;
-    }, {});
-    const groups = Object.entries(counts)
-        .map(([value, count]) => ({value: Number(value), count}))
-        .sort((a, b) => b.count - a.count || b.value - a.value);
-
-    const sortedCards = [...cards].sort((a, b) => getRankValue(b.rank) - getRankValue(a.rank));
-
-    if (isFlush && straightHigh === 14) return {rank: 9, name: "Royal Flush", score: [9, 14], comboCards: sortedCards};
-    if (isFlush && straightHigh) return {rank: 8, name: "Straight Flush", score: [8, straightHigh], comboCards: sortedCards};
-    if (groups[0].count === 4) {
-        const comboCards = [
-            ...sortedCards.filter(card => getRankValue(card.rank) === groups[0].value),
-            ...sortedCards.filter(card => getRankValue(card.rank) !== groups[0].value).slice(0, 1)
-        ];
-        return {rank: 7, name: "Four of a Kind", score: [7, groups[0].value, groups[1].value], comboCards};
-    }
-    if (groups[0].count === 3 && groups[1].count === 2) {
-        const comboCards = [
-            ...sortedCards.filter(card => getRankValue(card.rank) === groups[0].value),
-            ...sortedCards.filter(card => getRankValue(card.rank) === groups[1].value)
-        ];
-        return {rank: 6, name: "Full House", score: [6, groups[0].value, groups[1].value], comboCards};
-    }
-    if (isFlush) return {rank: 5, name: "Flush", score: [5, ...values], comboCards: sortedCards};
-    if (straightHigh) return {rank: 4, name: "Straight", score: [4, straightHigh], comboCards: sortedCards};
-    if (groups[0].count === 3) {
-        const kickers = groups.filter(group => group.count === 1).map(group => group.value);
-        const comboCards = [
-            ...sortedCards.filter(card => getRankValue(card.rank) === groups[0].value),
-            ...sortedCards.filter(card => getRankValue(card.rank) !== groups[0].value)
-        ];
-        return {rank: 3, name: "Three of a Kind", score: [3, groups[0].value, ...kickers], comboCards};
-    }
-    if (groups[0].count === 2 && groups[1].count === 2) {
-        const pairValues = groups.filter(group => group.count === 2).map(group => group.value);
-        const kicker = groups.find(group => group.count === 1).value;
-        const comboCards = [
-            ...sortedCards.filter(card => pairValues.includes(getRankValue(card.rank))),
-            ...sortedCards.filter(card => !pairValues.includes(getRankValue(card.rank)))
-        ];
-        return {rank: 2, name: "Two Pair", score: [2, ...pairValues, kicker], comboCards};
-    }
-    if (groups[0].count === 2) {
-        const kickers = groups.filter(group => group.count === 1).map(group => group.value);
-        const comboCards = [
-            ...sortedCards.filter(card => getRankValue(card.rank) === groups[0].value),
-            ...sortedCards.filter(card => getRankValue(card.rank) !== groups[0].value)
-        ];
-        return {rank: 1, name: "Pair", score: [1, groups[0].value, ...kickers], comboCards};
-    }
-    return {rank: 0, name: "High Card", score: [0, ...values], comboCards: sortedCards};
-}
-
-function evaluateBestHand(cards) {
-    return getCombinations(cards, 5)
-        .map(evaluateFiveCardHand)
-        .sort((a, b) => compareScores(b.score, a.score))[0];
-}
-
 async function startShowdown(game) {
     const activePlayers = getActivePlayers(game);
     const evaluations = activePlayers.map(player => ({
@@ -1000,17 +906,20 @@ async function startShowdown(game) {
     game.showdown = revealOrder;
     game.winner = winners.length ? winners.map(entry => entry.player).join(", ") : null;
     if (winners.length && !game.potAwarded) {
-        const baseShare = Math.floor(game.pot / winners.length);
-        let remainder = game.pot % winners.length;
-        for (const entry of winners) {
-            const extraChip = remainder > 0 ? 1 : 0;
-            game.stacks[entry.player] += baseShare + extraChip;
-            remainder -= extraChip;
+        const seatOrder = game.players.slice(game.dealerIndex + 1).concat(game.players.slice(0, game.dealerIndex + 1));
+        const payouts = calculatePayouts(game.contributions, evaluations, seatOrder);
+        for (const [player, amount] of Object.entries(payouts)) {
+            if (game.players.includes(player)) {
+                game.stacks[player] = (game.stacks[player] || 0) + amount;
+            } else {
+                await db.run("UPDATE users SET money = money + ? WHERE username = ?", amount, player);
+            }
         }
+        game.winner = Object.keys(payouts).filter(player => payouts[player] > 0).join(", ");
         game.potAwarded = true;
     }
     game.lastAction = game.winner
-        ? `Showdown: ${game.winner} ${winners.length === 1 ? "wins" : "split"} $${game.pot} with ${rankedResults[0].result.name}`
+        ? `Showdown: $${game.pot} distributed to ${game.winner}`
         : "Showdown ended";
     await persistPokerStacks(game);
     await scheduleNextRound(game);
@@ -1074,6 +983,7 @@ async function removePlayerFromPokerGame(lobbyId, username) {
         await setUserMoney(username, remainingStack);
     }
 
+    const currentPlayer = getCurrentPlayer(game);
     const index = game.players.indexOf(username);
     if (index > -1) {
         game.players.splice(index, 1);
@@ -1081,7 +991,7 @@ async function removePlayerFromPokerGame(lobbyId, username) {
     delete game.hands[username];
     delete game.folded[username];
     delete game.acted[username];
-    delete game.contributions[username];
+    // Keep committed chips for side-pot accounting after this player folds/leaves.
     delete game.playerBets[username];
     delete game.stacks[username];
 
@@ -1094,20 +1004,18 @@ async function removePlayerFromPokerGame(lobbyId, username) {
         return;
     }
 
-    if (game.currentPlayerIndex >= game.players.length) {
-        game.currentPlayerIndex = 0;
-    }
+    game.currentPlayerIndex = currentPlayer === username
+        ? (index - 1 + game.players.length) % game.players.length
+        : game.players.indexOf(currentPlayer);
     game.dealerIndex = Math.min(game.dealerIndex, game.players.length - 1);
-    if (game.turnTimerPlayer === username) {
-        clearTurnTimer(game);
-        if (game.phase === "betting" && !haveAllActivePlayersMatched(game)) {
-            startTurnTimer(game);
-        }
-    }
+    if (game.phase !== "betting") return;
     if (finishIfOnlyOneActive(game)) return;
-    if (game.phase === "betting" && haveAllActivePlayersMatched(game)) {
+    if (currentPlayer === username) {
+        advanceTurn(game);
+    } else if (haveAllActivePlayersMatched(game)) {
         revealNextStreet(game);
     }
+
 }
 
 async function ensurePlayerInPokerGame(lobbyId, username) {
@@ -1153,17 +1061,20 @@ function applyPokerAction(game, username, action, payload = {}, automatic = fals
     }
 
     if (action === "bet") {
-        const amount = Math.max(0, Number(payload.amount) || 0);
+        const amount = payload?.amount;
+        if (!Number.isSafeInteger(amount) || amount < 0) {
+            return {error: "Bet must be a non-negative whole number"};
+        }
         if (amount > game.stacks[username]) {
             return {error: "You do not have enough chips"};
         }
-        if (amount > 0 && amount < MINIMUM_STAKE) {
+        if (amount > 0 && amount < MINIMUM_STAKE && amount !== game.stacks[username] && amount !== getCallAmount(game, username)) {
             return {error: `Minimum stake is $${MINIMUM_STAKE}`};
         }
         if (amount <= 0 && game.playerBets[username] < game.currentBet) {
             return {error: `You need to match the current bet of $${game.currentBet}`};
         }
-        if (game.playerBets[username] + amount < game.currentBet) {
+        if (game.playerBets[username] + amount < game.currentBet && amount !== game.stacks[username]) {
             return {error: `Minimum bet is $${game.currentBet - game.playerBets[username]} to call`};
         }
         clearTurnTimer(game);
@@ -1238,6 +1149,12 @@ async function leavePokerLobby(lobbyId, username) {
     if (!lobbyId || !username || !playerMap[lobbyId]?.includes(username)) return false;
 
     clearDisconnectTimer(lobbyId, username);
+    for (const socket of lobbySockets[lobbyId] || []) {
+        if (socket.user?.username !== username) continue;
+        lobbySockets[lobbyId].delete(socket);
+        socket.lobbyId = null;
+        sendSocketMessage(socket, {type: "lobby:left", lobbyId});
+    }
     await leaveLobby(lobbyId, username);
     await removePlayerFromPokerGame(lobbyId, username);
     await deleteLobby(lobbyId);
@@ -1312,7 +1229,21 @@ function broadcastToLobby(lobbyId, payload) {
     }
 }
 
-async function createLobby() {
+function assertLobbyAvailable(username, targetLobbyId = null) {
+    const current = Object.keys(playerMap).find(id => playerMap[id].includes(username));
+    if (current && current !== targetLobbyId) {
+        const error = new Error("Leave your current lobby before joining another");
+        error.status = 409;
+        throw error;
+    }
+    if (targetLobbyId && playerMap[targetLobbyId]?.length >= 10 && !playerMap[targetLobbyId].includes(username)) {
+        const error = new Error("Lobby is full (maximum 10 players)");
+        error.status = 409;
+        throw error;
+    }
+}
+
+function createLobby() {
     let lobbyId;
     do {
         lobbyId = crypto.randomBytes(4).toString("hex");
@@ -1321,7 +1252,7 @@ async function createLobby() {
 }
 
 app.post("/leave-lobby", authenticateToken, async (req, res) => {
-    const {lobbyId} = req.body;
+    const {lobbyId} = req.body || {};
     const username = req.user.username;
     if (!lobbyId || !username) {
         return res.status(400).json({error: "Lobby ID und Username sind erforderlich!"});
@@ -1334,7 +1265,8 @@ app.post("/leave-lobby", authenticateToken, async (req, res) => {
     }
     return res.status(404).json({error: "User not in lobby"});
 });
-setInterval(() => removeEmptyLobbies(playerMap), 10000);
+const cleanupTimer = setInterval(() => removeEmptyLobbies(playerMap), 10000);
+cleanupTimer.unref();
 
 function removeEmptyLobbies(playerMap) {
     for (const lobby in playerMap) {
@@ -1378,6 +1310,7 @@ async function deleteLobby(id) {
 
 async function joinLobby(lobbyId, playerName) {
     if (!lobbyId || !playerName || !playerMap[lobbyId]) return false;
+    assertLobbyAvailable(playerName, lobbyId);
     if (!playerMap[lobbyId].includes(playerName)) {
         playerMap[lobbyId].push(playerName);
     }
@@ -1389,7 +1322,8 @@ app.get("/lobby/create", authenticateToken, async (req, res) => {
     if (!username) {
         return res.status(400).send("Username is required");
     }
-    let lobbyId = await createLobby();
+    assertLobbyAvailable(username);
+    let lobbyId = createLobby();
     if (!playerMap[lobbyId]) {
         playerMap[lobbyId] = [];
     }
@@ -1449,7 +1383,15 @@ app.get("/lobby/public", authenticateToken, async (req, res) => {
     res.json({lobbies: createPublicLobbyList()});
 });
 
-wss.on("connection", async (socket, request) => {
+wss.on("connection", (socket, request) => {
+    socket.on("error", error => console.error("WebSocket connection error:", error.message));
+    authenticateSocket(socket, request).catch(error => {
+        console.error("WebSocket authentication error:", error);
+        socket.close(1011, "Connection failed");
+    });
+});
+
+async function authenticateSocket(socket, request) {
     const cookies = parseCookieHeader(request.headers.cookie);
     const token = request.headers.authorization?.split(" ")[1] || cookies.authorization;
     const user = await verifyAuthToken(token);
@@ -1461,13 +1403,8 @@ wss.on("connection", async (socket, request) => {
     }
 
     socket.user = user;
-    sendSocketMessage(socket, {type: "auth:success", username: user.username});
     const storedUser = await findUserByUsername(user.username);
-    if (storedUser?.lobbyId && playerMap[storedUser.lobbyId]?.includes(user.username)) {
-        subscribeToLobby(socket, storedUser.lobbyId);
-        broadcastLobby(storedUser.lobbyId);
-    }
-
+    if (socket.readyState !== WebSocket.OPEN) return;
     socket.on("message", async (rawMessage) => {
         let message;
         try {
@@ -1478,8 +1415,17 @@ wss.on("connection", async (socket, request) => {
         }
 
         try {
+            if (!message || typeof message !== "object" || Array.isArray(message)) {
+                sendSocketMessage(socket, {type: "error", message: "Message must be an object"});
+                return;
+            }
+            if (!await verifyAuthToken(token)) {
+                socket.close(1008, "Session expired or revoked");
+                return;
+            }
             if (message.type === "lobby:create") {
-                const lobbyId = await createLobby();
+                assertLobbyAvailable(user.username);
+                const lobbyId = createLobby();
                 playerMap[lobbyId] = playerMap[lobbyId] || [];
                 if (!playerMap[lobbyId].includes(user.username)) {
                     playerMap[lobbyId].push(user.username);
@@ -1544,6 +1490,10 @@ wss.on("connection", async (socket, request) => {
                     return;
                 }
 
+                if (pokerGames[lobbyId] || startingLobbies.has(lobbyId)) {
+                    sendSocketMessage(socket, {type: "poker:error", message: "Game already started"});
+                    return;
+                }
                 await createPokerIntermission(lobbyId);
                 broadcastLobby(lobbyId);
                 broadcastPokerState(lobbyId);
@@ -1564,7 +1514,8 @@ wss.on("connection", async (socket, request) => {
 
                 subscribeToLobby(socket, lobbyId);
                 if (!pokerGames[lobbyId]) {
-                    await createPokerIntermission(lobbyId);
+                    sendSocketMessage(socket, {type: "poker:error", message: "Host must start the game first"});
+                    return;
                 }
                 await ensurePlayerInPokerGame(lobbyId, user.username);
                 await maybeStartWaitingGame(lobbyId);
@@ -1596,9 +1547,10 @@ wss.on("connection", async (socket, request) => {
             sendSocketMessage(socket, {type: "error", message: "Unknown message type"});
         } catch (error) {
             console.error("WebSocket message error:", error);
-            sendSocketMessage(socket, {type: "error", message: "WebSocket request failed"});
+            sendSocketMessage(socket, {type: "error", message: error.status === 409 ? error.message : "WebSocket request failed"});
         }
     });
+
 
     socket.on("close", async () => {
         if (!socket.lobbyId) return;
@@ -1608,15 +1560,46 @@ wss.on("connection", async (socket, request) => {
         }
         scheduleDisconnectLeave(lobbyId, socket.user.username);
     });
+    sendSocketMessage(socket, {type: "auth:success", username: user.username});
+    if (storedUser?.lobbyId && playerMap[storedUser.lobbyId]?.includes(user.username)) {
+        subscribeToLobby(socket, storedUser.lobbyId);
+        broadcastLobby(storedUser.lobbyId);
+    }
+
+}
+
+app.use((error, req, res, next) => {
+    if (res.headersSent) return next(error);
+    const status = error.status >= 400 && error.status < 500 ? error.status : 500;
+    if (status === 500) console.error("Request failed:", error);
+    res.status(status).json({error: status === 500 ? "Internal server error" : status === 409 ? error.message : "Invalid request body"});
 });
 
-initializeDatabase()
-    .then(() => {
-        server.listen(port, () => {
-            console.log("Server is running on port " + port);
+if (require.main === module) {
+    if (!process.env.TOKEN_SECRET) throw new Error("TOKEN_SECRET must be set in the environment or .env");
+    initializeDatabase()
+        .then(() => {
+            server.listen(port, () => {
+                console.log("Server is running on port " + port);
+            });
+        })
+        .catch((error) => {
+            console.error("Failed to initialize database:", error);
+            process.exit(1);
         });
-    })
-    .catch((error) => {
-        console.error("Failed to initialize database:", error);
-        process.exit(1);
-    });
+}
+
+async function close() {
+    clearInterval(cleanupTimer);
+    for (const timer of Object.values(disconnectTimers)) clearTimeout(timer);
+    for (const game of Object.values(pokerGames)) {
+        clearTurnTimer(game);
+        clearTimeout(game.nextRoundTimer);
+    }
+    for (const socket of wss.clients) socket.terminate();
+    await new Promise(resolve => wss.close(resolve));
+    if (server.listening) await new Promise(resolve => server.close(resolve));
+    if (db) await db.close();
+}
+
+module.exports = {close, app, server, wss, initializeDatabase, createPokerGame, createPokerIntermission, applyPokerAction, removePlayerFromPokerGame, pokerGames, playerMap, clearTurnTimer, parseCookieHeader};

@@ -138,7 +138,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     };
 
     const connectSocket = () => {
-        if (socket && socket.readyState === WebSocket.OPEN) {
+        if (socket && socket.readyState === WebSocket.OPEN && socket.authenticated) {
             return Promise.resolve(socket);
         }
 
@@ -158,6 +158,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 const message = JSON.parse(event.data);
                 if (message.type === "auth:success") {
                     currentUsername = message.username;
+                    socket.authenticated = true;
                     resolve(socket);
                 }
                 if (message.type === "auth:error") {
@@ -258,7 +259,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     logoutButton.addEventListener("click", async (e) => {
         e.preventDefault();
         try {
-            if (socket && socket.readyState === WebSocket.OPEN) {
+            if (socket && socket.readyState === WebSocket.OPEN && socket.authenticated) {
                 socket.close();
             }
             const logoutRes = await fetch("/logout", {
@@ -266,7 +267,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                 credentials: "same-origin"
             });
             if (logoutRes.ok) {
-                document.cookie = "authorization=; Max-Age=0; path=/;";
+                localStorage.removeItem("activeLobbyId");
                 window.location.href = "/login.html";
             }
         } catch (err) {

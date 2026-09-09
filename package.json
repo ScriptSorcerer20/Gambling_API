@@ -2,9 +2,13 @@
   "name": "gambling_api",
   "version": "1.0.0",
   "description": "",
-  "main": "swagger.js",
+  "main": "gambling.js",
   "scripts": {
-    "test": "node --check gambling.js && node --check public/frontend_home.js && node --check public/frontend_login.js && node --check public/frontend_poker.js && node --check swagger.js"
+    "start": "node gambling.js",
+    "dev": "node --watch gambling.js",
+    "docs": "node swagger.js",
+    "check": "node --check gambling.js && node --check lib/poker.js && node --check public/frontend_home.js && node --check public/frontend_login.js && node --check public/frontend_poker.js && node --check public/matrix.js && node --check swagger.js",
+    "test": "npm run check && node --test"
   },
   "repository": {
     "type": "git",
