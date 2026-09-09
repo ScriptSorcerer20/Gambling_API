@@ -27,6 +27,6 @@
     "ws": "^8.20.0"
   },
   "devDependencies": {
-    "swagger-autogen": "^2.23.7"
+    "@playwright/test": "^1.63.0"
   }
 }

@@ -4,7 +4,7 @@ body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     margin: 0;
     min-height: 100vh;
-    overflow: hidden;
+    overflow-x: clip;
 }
 
 button {
@@ -348,10 +348,6 @@ button:disabled:hover {
     padding: 8px 22px;
 }
 
-.hidden {
-    display: none;
-}
-
 @media (max-width: 700px) {
     .poker-table {
         padding: 14px;
@@ -385,4 +381,19 @@ button:disabled:hover {
         flex-wrap: wrap;
         justify-content: center;
     }
+}
+
+.poker-table { gap: 24px; }
+.turn-panel { min-width: 0; width: min(460px, 100%); }
+.community-area, .player-area { max-width: 100%; min-width: 0; }
+.card-row { flex-wrap: wrap; justify-content: center; }
+.bet-modal { z-index: 10; padding: 24px; }
+.bet-panel { max-width: 100%; }
+.player-status, .round-panel { overflow-wrap: anywhere; }
+@media (max-width: 700px) {
+    .card-row { gap: 6px; }
+    .card-row .card { width: 48px; height: 74px; }
+    .showdown-panel { position: static; width: 100%; max-height: none; }
+    .round-panel { padding: 12px 8px; font-size: 14px; }
+    .divider { margin: 0 4px; }
 }

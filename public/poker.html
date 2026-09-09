@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Poker Table</title>
+    <link rel="stylesheet" href="shared.css">
     <link rel="stylesheet" href="styles_poker.css">
     <link rel="icon" href="gambling.png" type="image/x-icon">
 </head>
@@ -57,17 +58,18 @@
     </section>
 
     <section id="showdown-panel" class="showdown-panel hidden" aria-label="Showdown"></section>
-    <div id="error-message" class="error-message hidden"></div>
+    <div id="error-message" role="alert" aria-live="polite" class="error-message hidden"></div>
 </main>
 
 <div id="bet-modal" class="bet-modal hidden" role="dialog" aria-modal="true" aria-labelledby="bet-title">
     <div class="bet-panel">
         <button id="close-bet" class="close-bet" aria-label="Close bet dialog">x</button>
         <h2 id="bet-title">Choose amount to bet</h2>
+        <label class="sr-only" for="bet-range">Chips to add to the pot</label>
         <input id="bet-range" type="range" min="0" max="400" step="10" value="50">
         <div class="range-labels">
-            <span>$0</span>
-            <span>$400</span>
+            <span id="range-min">$0</span>
+            <span id="range-max">$0</span>
         </div>
         <div class="bet-amount">
             <button id="decrease-bet">-</button>
@@ -78,6 +80,8 @@
     </div>
 </div>
 
+<script src="protocol.js"></script>
+<script src="client.js"></script>
 <script src="frontend_poker.js" defer></script>
 <script src="matrix.js"></script>
 </body>

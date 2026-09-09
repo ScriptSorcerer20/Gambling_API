@@ -3,7 +3,7 @@
     color: #0f0;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     margin: 0;
-    height: 100vh;
+    min-height: 100vh;
     position: relative;
     display: flex;
     flex-direction: column;
@@ -89,17 +89,6 @@ button.logout {
     vertical-align: middle;
 }
 
-.lobby-room {
-    background: rgba(0, 0, 0, 0.7);
-    border: 2px solid #0f0;
-    border-radius: 12px;
-    padding: 30px;
-    margin-top: 40px;
-    width: 400px;
-    text-align: center;
-    box-shadow: 0 0 10px #0f0;
-}
-
 .lobby-room h2 {
     color: #0f0;
     font-size: 20px;
@@ -109,10 +98,6 @@ button.logout {
 
 #player-list {
     color: #fff;
-}
-
-.hidden {
-    display: none;
 }
 
 .join-browser {
@@ -231,10 +216,6 @@ button.logout {
     text-shadow: 0 0 3px red;
 }
 
-.hidden {
-    display: none;
-}
-
 #matrix-canvas {
     position: fixed;
     top: 0;
@@ -340,4 +321,16 @@ button.logout {
     cursor: not-allowed;
     box-shadow: 0 0 5px #0f0 inset;
     transform: none;
+}
+
+.lobby-room { width: min(460px, calc(100vw - 32px)); overflow-wrap: anywhere; }
+body { padding: 72px 16px 24px; gap: 8px; }
+@media (max-width: 1000px) {
+    body { justify-content: flex-start; }
+    .leaderboard { position: static; width: min(460px, 100%); order: 10; margin-top: 24px; }
+    body::before { text-align: center; font-size: 20px; margin-bottom: 12px; }
+    .join-code-row { flex-wrap: wrap; }
+    #join-form input { width: 100%; min-width: 0; }
+    .lobby-visibility { flex-wrap: wrap; justify-content: center; }
+    .lobby-header { position: static; text-align: right; }
 }

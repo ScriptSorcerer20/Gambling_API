@@ -1,109 +1,20 @@
-document.addEventListener("DOMContentLoaded", () => {
-    const form = document.querySelector("form");
-    const registerButton = document.getElementById("register-button");
-    const loginButton = document.getElementById("login-button");
-    const authError = document.getElementById("auth-error");
-
-    form.addEventListener("submit", async (event) => {
-        event.preventDefault();
-        await authenticate("/login", "Login successful. Loading Lobby...");
-    });
-
-    registerButton.addEventListener("click", async () => {
-        await authenticate("/register", "Register successful. Loading Lobby...");
-    });
-
-    async function authenticate(endpoint, successMessage) {
-        clearAuthError();
-        setButtonsDisabled(true);
-
-        const credentials = {
-            username: form.username.value,
-            password: form.password.value
-        };
-
+﻿document.addEventListener('DOMContentLoaded', () => {
+    const form = document.querySelector('form');
+    const error = document.getElementById('auth-error');
+    let pending = false;
+    async function authenticate(endpoint) {
+        if (pending || !form.reportValidity()) return;
+        pending = true; error.textContent = ''; error.classList.add('hidden');
+        for (const button of form.querySelectorAll('button')) button.disabled = true;
         try {
-            const response = await fetch(endpoint, {
-                method: "POST",
-                headers: {"Content-Type": "application/json"},
-                credentials: "same-origin",
-                body: JSON.stringify(credentials)
-            });
-
-            const data = await readJsonResponse(response);
-            if (!response.ok) {
-                showAuthError(data.error || "Authentication failed.");
-                return;
-            }
-
-            const verified = await verifySession();
-            if (!verified) {
-                showAuthError("Login succeeded, but the browser did not send the session cookie back to the server.");
-                return;
-            }
-
-            showLoadingScreen(successMessage);
-        } catch (error) {
-            console.error("Authentication request failed:", error);
-            showAuthError("Server unreachable.");
-        } finally {
-            setButtonsDisabled(false);
-        }
+            const response = await fetch(endpoint, {method: 'POST', credentials: 'same-origin', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({username: form.username.value, password: form.password.value})});
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.error || 'Authentication failed');
+            location.assign('/');
+        } catch (problem) {error.textContent = problem.message; error.classList.remove('hidden');}
+        finally {pending = false; for (const button of form.querySelectorAll('button')) button.disabled = false;}
     }
-
-    async function verifySession() {
-        const response = await fetch("/verify", {
-            method: "POST",
-            credentials: "same-origin"
-        });
-        if (!response.ok) return false;
-
-        const data = await readJsonResponse(response);
-        return Boolean(data.valid && data.user?.username);
-    }
-
-    async function readJsonResponse(response) {
-        try {
-            return await response.json();
-        } catch {
-            return {};
-        }
-    }
-
-    function showAuthError(message) {
-        authError.textContent = message;
-        authError.classList.remove("hidden");
-    }
-
-    function clearAuthError() {
-        authError.textContent = "";
-        authError.classList.add("hidden");
-    }
-
-    function setButtonsDisabled(disabled) {
-        loginButton.disabled = disabled;
-        registerButton.disabled = disabled;
-    }
-
-    function showLoadingScreen(message) {
-        const loadingScreen = document.getElementById("loading-screen");
-        const loadingText = document.getElementById("loading-text");
-        const progress = document.getElementById("progress");
-        loadingText.textContent = message;
-        loadingScreen.classList.remove("hidden");
-        let percent = 0;
-        const interval = setInterval(() => {
-            percent += Math.floor(Math.random() * 10) + 5;
-            if (percent >= 100) {
-                percent = 100;
-                progress.style.width = percent + "%";
-                clearInterval(interval);
-                setTimeout(() => {
-                    window.location.href = "/";
-                }, 500);
-            } else {
-                progress.style.width = percent + "%";
-            }
-        }, 200);
-    }
+    form.addEventListener('submit', event => {event.preventDefault(); authenticate('/login');});
+    document.getElementById('register-button').addEventListener('click', () => authenticate('/register'));
 });
