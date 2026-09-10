@@ -56,7 +56,7 @@ test('login fits a narrow viewport and protected pages redirect',async({page})=>
 });
 test('secret shortcut displays every staged cue', async ({page}) => {
     await register(page, `cue-${Date.now()}`);
-    await page.keyboard.press('Alt');
+    await page.keyboard.press('Alt+p');
     await page.keyboard.press('j');
     await expect(page.locator('#secret-cue')).toHaveText('J');
     await page.keyboard.press('f');

@@ -73,7 +73,7 @@
     };
     document.addEventListener('keydown', event => {
         if (easterOpen || event.repeat) return;
-        if (event.code === 'AltLeft' || event.code === 'AltRight') {armEasterSequence(); cueSecret('', 'soft'); return;}
+        if (event.altKey && !event.ctrlKey && !event.metaKey && !event.shiftKey && event.code === 'KeyP') {event.preventDefault(); armEasterSequence(); cueSecret('', 'soft'); return;}
         if (easterStage === 0 && event.code === 'KeyJ') {easterStage = 1; armEasterSequence(false); cueSecret('J', 'medium'); return;}
         if (easterStage === 1 && event.code === 'KeyF') {easterStage = 2; armEasterSequence(false); cueSecret('F', 'strong'); return;}
         if (easterStage === 2 && event.code === 'KeyK') {event.preventDefault(); clearTimeout(easterSequenceTimer); flashSecret(); unlockEasterTitle(); easterStage = 0; return;}
